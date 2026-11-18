@@ -1,0 +1,8 @@
+{
+  "name": "Remix Permiso Trabajo Alturas",
+  "description": "Aplicación dinámica para llenar, firmar y gestionar el permiso de trabajo en alturas según Resolución 4272 2021.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

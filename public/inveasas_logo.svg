@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 140" width="360" height="140">
+  <!-- Símbolo de Átomo / Órbitas -->
+  <g transform="translate(42, 54)">
+    <!-- Órbita 1 (inclinada -38 deg) -->
+    <ellipse cx="0" cy="0" rx="32" ry="12" fill="none" stroke="#0e172a" stroke-width="2.6" transform="rotate(-38)" />
+    <!-- Electrón 1 -->
+    <circle cx="-24" cy="-15" r="3.2" fill="#0e172a" />
+
+    <!-- Órbita 2 (inclinada +38 deg) -->
+    <ellipse cx="0" cy="0" rx="32" ry="12" fill="none" stroke="#0e172a" stroke-width="2.6" transform="rotate(38)" />
+    <!-- Electrón 2 -->
+    <circle cx="22" cy="-16" r="3.2" fill="#0e172a" />
+
+    <!-- Órbita 3 (inclinada +82 deg) -->
+    <ellipse cx="0" cy="0" rx="32" ry="12" fill="none" stroke="#0e172a" stroke-width="2.6" transform="rotate(82)" />
+    <!-- Electrón 3 -->
+    <circle cx="-3" cy="-30" r="3.2" fill="#0e172a" />
+
+    <!-- Núcleo central -->
+    <circle cx="0" cy="0" r="7.5" fill="#0e172a" />
+  </g>
+
+  <!-- Texto Principal inveasas -->
+  <text x="80" y="66" 
+        font-family="Liberation Sans, Arial, Helvetica, sans-serif" 
+        font-size="62" 
+        font-weight="900" 
+        letter-spacing="-1.5"
+        fill="#0e172a">inveasas</text>
+
+  <!-- Subtítulo Corporativo -->
+  <text x="180" y="96" 
+        text-anchor="middle"
+        font-family="Liberation Sans, Arial, Helvetica, sans-serif" 
+        font-size="14" 
+        font-weight="700" 
+        letter-spacing="0.8"
+        fill="#1e293b">INVESTIGACIÓN ENERGÉTICA APLICADA S.A.S</text>
+
+  <!-- Slogan -->
+  <text x="180" y="122" 
+        text-anchor="middle"
+        font-family="Liberation Sans, Arial, Helvetica, sans-serif" 
+        font-size="15.5" 
+        font-weight="800" 
+        font-style="italic"
+        letter-spacing="0.2"
+        fill="#0e172a">¡Con nosotros la energía es tuya!</text>
+</svg>

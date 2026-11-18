@@ -1,0 +1,212 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidPermit(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'permitNumber',
+          'date',
+          'validUntil',
+          'location',
+          'workType',
+          'workHeight',
+          'contractingCompany',
+          'contractorCompany',
+          'activityDescription',
+          'workerSummary',
+          'status',
+          'permitData',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'permitNumber',
+          'date',
+          'validUntil',
+          'location',
+          'workType',
+          'workHeight',
+          'contractingCompany',
+          'contractorCompany',
+          'activityDescription',
+          'workerSummary',
+          'status',
+          'permitData',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.ownerId == request.auth.uid
+        && data.permitNumber is string && data.permitNumber.size() <= 40
+        && data.date is string && data.date.size() <= 20
+        && data.validUntil is string && data.validUntil.size() <= 20
+        && data.location is string && data.location.size() <= 200
+        && data.workType is string && data.workType.size() <= 160
+        && data.workHeight is string && data.workHeight.size() <= 80
+        && data.contractingCompany is string && data.contractingCompany.size() <= 160
+        && data.contractorCompany is string && data.contractorCompany.size() <= 160
+        && data.activityDescription is string && data.activityDescription.size() <= 1500
+        && data.workerSummary is string && data.workerSummary.size() <= 500
+        && data.status is string && data.status in ['borrador', 'activo', 'cerrado']
+        && data.permitData is map
+        && data.permitData.keys().hasAll(['permitNumber', 'workers'])
+        && data.permitData.permitNumber is string && data.permitData.permitNumber.size() <= 40
+        && data.permitData.workers is list && data.permitData.workers.size() <= 30
+        && (data.permitData.workers.size() == 0 || data.permitData.workers[0] is map)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isPermitEditableUpdate() {
+      return existing().status != 'cerrado'
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'permitNumber',
+          'date',
+          'validUntil',
+          'location',
+          'workType',
+          'workHeight',
+          'contractingCompany',
+          'contractorCompany',
+          'activityDescription',
+          'workerSummary',
+          'status',
+          'permitData',
+          'updatedAt'
+        ]);
+    }
+
+    function isValidPersonnel(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'name',
+          'docType',
+          'docNumber',
+          'category',
+          'role',
+          'em',
+          'ss',
+          'ca',
+          'pa',
+          'signature',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'name',
+          'docType',
+          'docNumber',
+          'category',
+          'role',
+          'em',
+          'ss',
+          'ca',
+          'pa',
+          'signature',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 140
+        && data.docType is string && data.docType in ['CC', 'CE', 'TI', 'PAS', 'PEP']
+        && data.docNumber is string && data.docNumber.size() <= 40
+        && data.category is string && data.category in ['worker', 'coordinator', 'authorizer', 'emergencyActivator', 'safetyHelper', 'general']
+        && data.role is string && data.role.size() <= 120
+        && data.em is bool
+        && data.ss is bool
+        && data.ca is bool
+        && data.pa is bool
+        && data.signature is string && data.signature.size() <= 250000
+        && data.notes is string && data.notes.size() <= 300
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isPersonnelUpdateAction() {
+      return incoming().diff(existing()).affectedKeys().hasOnly([
+        'name',
+        'docType',
+        'docNumber',
+        'category',
+        'role',
+        'em',
+        'ss',
+        'ca',
+        'pa',
+        'signature',
+        'notes',
+        'updatedAt'
+      ]);
+    }
+
+    match /permits/{permitId} {
+      allow get: if isSignedIn() && isValidId(permitId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified()
+        && isValidId(permitId)
+        && isValidPermit(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(permitId)
+        && isValidPermit(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isPermitEditableUpdate();
+      allow delete: if isVerified() && isValidId(permitId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /personnel/{personId} {
+      allow get: if isSignedIn() && isValidId(personId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified()
+        && isValidId(personId)
+        && isValidPersonnel(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(personId)
+        && isValidPersonnel(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isPersonnelUpdateAction();
+      allow delete: if isVerified() && isValidId(personId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}

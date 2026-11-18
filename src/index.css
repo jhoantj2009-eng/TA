@@ -1,0 +1,416 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+/* Reglas Globales para Maquetación y Tablas */
+table {
+  border-collapse: collapse !important;
+}
+
+/* En desktop/print mantener table-layout fixed por defecto */
+@media (min-width: 768px) {
+  table {
+    table-layout: fixed !important;
+    width: 100% !important;
+  }
+}
+
+th, td {
+  box-sizing: border-box;
+}
+
+/* Imágenes de firmas normalizadas */
+img[alt*="Firma"], 
+img[alt*="firma"] {
+  object-fit: contain !important;
+  max-height: 40px !important;
+  max-width: 120px !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Modo Vista Previa */
+.preview-mode .print\:hidden:not(.keep-in-preview) {
+  display: none !important;
+}
+.preview-mode .print\:block {
+  display: block !important;
+}
+.preview-mode .print\:p-0 {
+  padding: 0 !important;
+}
+.preview-mode .print\:bg-white {
+  background-color: white !important;
+}
+.preview-mode .print\:shadow-none {
+  box-shadow: none !important;
+}
+
+/* Quitar bordes y fondos de inputs en vista previa */
+.preview-mode input, 
+.preview-mode textarea, 
+.preview-mode select {
+  pointer-events: none;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  resize: none;
+}
+
+/* Enforce desktop layout in preview and PDF rendering (Garantiza que al descargar en móvil no se desorganice) */
+.preview-mode .header-official-table,
+.pdf-render-desktop .header-official-table {
+  display: flex !important;
+  flex-direction: row !important;
+}
+.preview-mode .header-official-table > div:nth-child(1),
+.pdf-render-desktop .header-official-table > div:nth-child(1) {
+  width: 25% !important;
+  border-right-width: 2px !important;
+  border-bottom-width: 0px !important;
+}
+.preview-mode .header-official-table > div:nth-child(2),
+.pdf-render-desktop .header-official-table > div:nth-child(2) {
+  width: 50% !important;
+  border-right-width: 2px !important;
+  border-bottom-width: 0px !important;
+}
+.preview-mode .header-official-table > div:nth-child(3),
+.pdf-render-desktop .header-official-table > div:nth-child(3) {
+  width: 25% !important;
+  border-bottom-width: 0px !important;
+}
+
+/* Visibility */
+.preview-mode .md\:hidden,
+.pdf-render-desktop .md\:hidden {
+  display: none !important;
+}
+.preview-mode .hidden.sm\:inline-block,
+.preview-mode .sm\:inline-block,
+.pdf-render-desktop .hidden.sm\:inline-block,
+.pdf-render-desktop .sm\:inline-block,
+.preview-mode .hidden.sm\:inline,
+.preview-mode .sm\:inline,
+.pdf-render-desktop .hidden.sm\:inline,
+.pdf-render-desktop .sm\:inline {
+  display: inline-block !important;
+}
+.preview-mode .hidden.md\:flex,
+.preview-mode .md\:flex,
+.pdf-render-desktop .hidden.md\:flex,
+.pdf-render-desktop .md\:flex {
+  display: flex !important;
+}
+.preview-mode .md\:grid,
+.pdf-render-desktop .md\:grid {
+  display: grid !important;
+}
+
+/* Grids Unconditional Enforcements */
+.preview-mode .sm\:grid-cols-2,
+.preview-mode .md\:grid-cols-2,
+.pdf-render-desktop .sm\:grid-cols-2,
+.pdf-render-desktop .md\:grid-cols-2,
+.pdf-render-desktop .grid-cols-1.md\:grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.preview-mode .sm\:grid-cols-3,
+.preview-mode .md\:grid-cols-3,
+.pdf-render-desktop .sm\:grid-cols-3,
+.pdf-render-desktop .md\:grid-cols-3,
+.pdf-render-desktop .grid-cols-1.sm\:grid-cols-3,
+.pdf-render-desktop .grid-cols-1.md\:grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.preview-mode .sm\:grid-cols-4,
+.preview-mode .md\:grid-cols-4,
+.pdf-render-desktop .sm\:grid-cols-4,
+.pdf-render-desktop .md\:grid-cols-4,
+.pdf-render-desktop .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.preview-mode .sm\:grid-cols-5,
+.preview-mode .md\:grid-cols-5,
+.pdf-render-desktop .sm\:grid-cols-5,
+.pdf-render-desktop .md\:grid-cols-5,
+.pdf-render-desktop .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+.preview-mode .sm\:grid-cols-12,
+.pdf-render-desktop .sm\:grid-cols-12,
+.pdf-render-desktop .grid-cols-1.sm\:grid-cols-12 {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+}
+
+/* Col Spans */
+.preview-mode .sm\:col-span-2,
+.preview-mode .md\:col-span-2,
+.pdf-render-desktop .sm\:col-span-2,
+.pdf-render-desktop .md\:col-span-2,
+.pdf-render-desktop .col-span-12.sm\:col-span-3.md\:col-span-2 {
+  grid-column: span 2 / span 2 !important;
+}
+
+.preview-mode .sm\:col-span-3,
+.preview-mode .md\:col-span-3,
+.pdf-render-desktop .sm\:col-span-3,
+.pdf-render-desktop .md\:col-span-3,
+.pdf-render-desktop .col-span-12.sm\:col-span-3 {
+  grid-column: span 3 / span 3 !important;
+}
+
+.preview-mode .sm\:col-span-4,
+.preview-mode .md\:col-span-4,
+.pdf-render-desktop .sm\:col-span-4,
+.pdf-render-desktop .md\:col-span-4,
+.pdf-render-desktop .col-span-12.sm\:col-span-4 {
+  grid-column: span 4 / span 4 !important;
+}
+
+.preview-mode .sm\:col-span-5,
+.preview-mode .md\:col-span-5,
+.pdf-render-desktop .sm\:col-span-5,
+.pdf-render-desktop .md\:col-span-5,
+.pdf-render-desktop .col-span-12.sm\:col-span-5 {
+  grid-column: span 5 / span 5 !important;
+}
+
+.preview-mode .sm\:col-span-6,
+.preview-mode .md\:col-span-6,
+.pdf-render-desktop .sm\:col-span-6,
+.pdf-render-desktop .md\:col-span-6,
+.pdf-render-desktop .col-span-12.sm\:col-span-5.md\:col-span-6 {
+  grid-column: span 6 / span 6 !important;
+}
+
+/* Flex Directions */
+.preview-mode .sm\:flex-row,
+.preview-mode .md\:flex-row,
+.pdf-render-desktop .sm\:flex-row,
+.pdf-render-desktop .md\:flex-row,
+.pdf-render-desktop .flex-col.sm\:flex-row,
+.pdf-render-desktop .flex-col.md\:flex-row {
+  flex-direction: row !important;
+}
+
+/* Divide and Borders */
+.preview-mode .sm\:divide-y-0 > :not([hidden]) ~ :not([hidden]),
+.preview-mode .md\:divide-y-0 > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .sm\:divide-y-0 > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .md\:divide-y-0 > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .divide-y.md\:divide-y-0 > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .divide-y.sm\:divide-y-0 > :not([hidden]) ~ :not([hidden]) {
+  border-top-width: 0px !important;
+  border-bottom-width: 0px !important;
+}
+
+.preview-mode .sm\:divide-x > :not([hidden]) ~ :not([hidden]),
+.preview-mode .md\:divide-x > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .sm\:divide-x > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .md\:divide-x > :not([hidden]) ~ :not([hidden]),
+.pdf-render-desktop .divide-x.md\:divide-x > :not([hidden]) ~ :not([hidden]) {
+  border-left-width: 1px !important;
+  border-right-width: 0px !important;
+}
+
+.preview-mode .sm\:border-b-0,
+.preview-mode .md\:border-b-0,
+.pdf-render-desktop .sm\:border-b-0,
+.pdf-render-desktop .md\:border-b-0,
+.pdf-render-desktop .border-b.sm\:border-b-0,
+.pdf-render-desktop .border-b.md\:border-b-0 {
+  border-bottom-width: 0px !important;
+}
+
+.preview-mode .sm\:border-r,
+.preview-mode .md\:border-r,
+.pdf-render-desktop .sm\:border-r,
+.pdf-render-desktop .md\:border-r,
+.pdf-render-desktop .border-r-0.sm\:border-r,
+.pdf-render-desktop .border-r-0.md\:border-r {
+  border-right-width: 1px !important;
+}
+
+.preview-mode .sm\:border-r-2,
+.preview-mode .md\:border-r-2,
+.pdf-render-desktop .sm\:border-r-2,
+.pdf-render-desktop .md\:border-r-2 {
+  border-right-width: 2px !important;
+}
+
+.preview-mode .sm\:w-28,
+.pdf-render-desktop .sm\:w-28,
+.pdf-render-desktop .w-full.sm\:w-28 {
+  width: 7rem !important;
+}
+.preview-mode .sm\:w-24,
+.pdf-render-desktop .sm\:w-24,
+.pdf-render-desktop .w-full.sm\:w-24 {
+  width: 6rem !important;
+}
+.preview-mode .sm\:w-20,
+.pdf-render-desktop .sm\:w-20 {
+  width: 5rem !important;
+}
+.preview-mode .sm\:w-auto,
+.pdf-render-desktop .sm\:w-auto {
+  width: auto !important;
+}
+.preview-mode .md\:w-1\/4,
+.pdf-render-desktop .md\:w-1\/4,
+.pdf-render-desktop .w-full.md\:w-1\/4 {
+  width: 25% !important;
+}
+.preview-mode .md\:w-2\/4,
+.pdf-render-desktop .md\:w-2\/4,
+.pdf-render-desktop .w-full.md\:w-2\/4 {
+  width: 50% !important;
+}
+.preview-mode .md\:w-1\/3,
+.pdf-render-desktop .md\:w-1\/3 {
+  width: 33.333333% !important;
+}
+.preview-mode .md\:w-2\/3,
+.pdf-render-desktop .md\:w-2\/3 {
+  width: 66.666667% !important;
+}
+.preview-mode .md\:w-1\/2,
+.pdf-render-desktop .md\:w-1\/2 {
+  width: 50% !important;
+}
+.preview-mode .overflow-x-auto,
+.pdf-render-desktop .overflow-x-auto {
+  overflow-x: visible !important;
+}
+.preview-mode table,
+.pdf-render-desktop table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+}
+
+.pdf-page {
+  box-sizing: border-box;
+}
+
+/* Unified PDF Canvas Rendering */
+.pdf-render-desktop {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.pdf-render-desktop .shadow-lg,
+.pdf-render-desktop .shadow-2xs,
+.pdf-render-desktop .shadow-xs,
+.preview-mode .shadow-lg,
+.preview-mode .shadow-2xs,
+.preview-mode .shadow-xs {
+  box-shadow: none !important;
+}
+
+.pdf-render-desktop .pdf-page {
+  width: 1000px !important;
+  max-width: 1000px !important;
+  min-height: auto !important;
+  box-sizing: border-box !important;
+  padding: 14px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.pdf-render-desktop .pdf-page-unified {
+  width: 1000px !important;
+  max-width: 1000px !important;
+  min-height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+}
+
+.pdf-render-desktop input,
+.pdf-render-desktop select,
+.pdf-render-desktop textarea {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 6mm;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  }
+
+  .pdf-page-unified {
+    page-break-after: auto !important;
+    break-after: auto !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .pdf-page-unified > div,
+  .pdf-page-unified > section,
+  .pdf-page-unified > .border {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .pdf-page:not(.pdf-page-unified) {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: always;
+    break-after: page;
+    min-height: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .pdf-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Asegurar bordes nítidos y sin saltos en impresión */
+  .border, .border-t, .border-b, .border-l, .border-r, 
+  .border-2 {
+    border-color: inherit;
+  }
+
+  input, textarea, select {
+    border: none !important;
+    background: transparent !important;
+    resize: none !important;
+    color: #000000 !important;
+  }
+}

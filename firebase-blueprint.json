@@ -1,0 +1,204 @@
+{
+  "entities": {
+    "PermitRecord": {
+      "title": "PermitRecord",
+      "description": "Saved Work-at-Heights Permit record for history, search, reload, and duplication.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the authenticated user who created this permit record.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "permitNumber": {
+          "type": "string",
+          "description": "Permit consecutive number.",
+          "maxLength": 40
+        },
+        "date": {
+          "type": "string",
+          "description": "Issue date (YYYY-MM-DD).",
+          "maxLength": 20
+        },
+        "validUntil": {
+          "type": "string",
+          "description": "Expiration date (YYYY-MM-DD).",
+          "maxLength": 20
+        },
+        "location": {
+          "type": "string",
+          "description": "Work area or site location.",
+          "maxLength": 200
+        },
+        "workType": {
+          "type": "string",
+          "description": "Type of work at heights.",
+          "maxLength": 160
+        },
+        "workHeight": {
+          "type": "string",
+          "description": "Estimated work height.",
+          "maxLength": 80
+        },
+        "contractingCompany": {
+          "type": "string",
+          "description": "Contracting company name.",
+          "maxLength": 160
+        },
+        "contractorCompany": {
+          "type": "string",
+          "description": "Contractor company name.",
+          "maxLength": 160
+        },
+        "activityDescription": {
+          "type": "string",
+          "description": "Detailed task description.",
+          "maxLength": 1500
+        },
+        "workerSummary": {
+          "type": "string",
+          "description": "Summary of authorized workers for display and search.",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle status of the permit.",
+          "enum": ["borrador", "activo", "cerrado"]
+        },
+        "permitData": {
+          "type": "object",
+          "description": "Structured native map containing all sections of PermitData."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "permitNumber",
+        "date",
+        "validUntil",
+        "location",
+        "workType",
+        "workHeight",
+        "contractingCompany",
+        "contractorCompany",
+        "activityDescription",
+        "workerSummary",
+        "status",
+        "permitData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonnelRecord": {
+      "title": "PersonnelRecord",
+      "description": "Personnel directory entry including identification, safety compliance flags, and reusable digital signature.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the authenticated user owning this directory entry.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the person.",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "docType": {
+          "type": "string",
+          "description": "Document type.",
+          "enum": ["CC", "CE", "TI", "PAS", "PEP"]
+        },
+        "docNumber": {
+          "type": "string",
+          "description": "Identification number / cédula.",
+          "maxLength": 40
+        },
+        "category": {
+          "type": "string",
+          "description": "Directory role category.",
+          "enum": ["worker", "coordinator", "authorizer", "emergencyActivator", "safetyHelper", "general"]
+        },
+        "role": {
+          "type": "string",
+          "description": "Job title or position.",
+          "maxLength": 120
+        },
+        "em": {
+          "type": "boolean",
+          "description": "Medical exam compliance flag."
+        },
+        "ss": {
+          "type": "boolean",
+          "description": "Social security compliance flag."
+        },
+        "ca": {
+          "type": "boolean",
+          "description": "Work-at-heights certification compliance flag."
+        },
+        "pa": {
+          "type": "boolean",
+          "description": "Authorized person flag."
+        },
+        "signature": {
+          "type": "string",
+          "description": "Base64 PNG digital signature.",
+          "maxLength": 250000
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or certificate validity details.",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "docType",
+        "docNumber",
+        "category",
+        "role",
+        "em",
+        "ss",
+        "ca",
+        "pa",
+        "signature",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/permits/{permitId}": {
+      "schema": { "$ref": "#/entities/PermitRecord" },
+      "description": "Collection of Work-at-Heights permits owned by authenticated users."
+    },
+    "/personnel/{personId}": {
+      "schema": { "$ref": "#/entities/PersonnelRecord" },
+      "description": "Collection of company personnel directory records with reusable signatures."
+    }
+  }
+}
