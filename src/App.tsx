@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
-import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Building2, ChevronDown, ChevronUp, LogIn, LogOut } from 'lucide-react';
+import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Building2, ChevronDown, ChevronUp, LogIn, LogOut, ArrowLeft } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PermitData, PermitHistoryRecord, PermitStatus, initialPermitData } from './types';
@@ -406,6 +406,7 @@ export default function App() {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsHeaderMenuOpen(false);
+        setIsPreview(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1643,15 +1644,68 @@ export default function App() {
         </div>
       )}
 
-      {/* Notice Banner */}
+      {/* Barra superior persistente en Modo Vista Previa (visible y accesible en iPhone/móvil y escritorio) */}
       {isPreview && !isGeneratingPdf && (
-        <div className="w-full bg-brand-700 text-white font-semibold text-center text-xs py-1.5 shadow print:hidden">
-          MODO VISTA PREVIA ACTIVO — Visualización unificada del formato oficial para auditoría SG-SST (Res. 4272/2021).
+        <div
+          role="region"
+          aria-label="Controles de vista previa"
+          data-html2canvas-ignore="true"
+          className="keep-in-preview print:hidden sticky top-0 z-50 w-full bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-700 shadow-lg pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 px-3 sm:px-5"
+        >
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPreview(false)}
+              aria-label="Volver al formulario principal"
+              className="min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors shrink-0 cursor-pointer"
+            >
+              <ArrowLeft size={16} className="shrink-0" />
+              <span>Volver al formulario</span>
+            </button>
+
+            <div className="hidden md:flex flex-col items-center text-center min-w-0 px-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-300">
+                Modo Vista Previa Activo
+              </span>
+              <span className="text-[11px] text-slate-300 truncate">
+                Formato oficial SG-SST (Res. 4272/2021)
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPdf}
+              aria-label="Descargar PDF oficial"
+              className="min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white border border-slate-600 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+            >
+              <Download size={15} className="text-brand-300 shrink-0" />
+              <span>Descargar PDF</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Botón flotante fijo en parte inferior para iPhone/móvil (siempre alcanzable aunque se desplace o haga zoom) */}
+      {isPreview && !isGeneratingPdf && (
+        <div
+          data-html2canvas-ignore="true"
+          className="keep-in-preview print:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-5 z-50"
+        >
+          <button
+            type="button"
+            onClick={() => setIsPreview(false)}
+            aria-label="Regresar al formulario principal"
+            className="min-h-[46px] px-5 py-2.5 rounded-full bg-slate-900/95 hover:bg-brand-700 active:bg-brand-800 text-white border border-brand-400/60 shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer"
+          >
+            <ArrowLeft size={16} className="text-brand-300 shrink-0" />
+            <span>Volver al formulario</span>
+          </button>
         </div>
       )}
 
       {/* Main Document Layout */}
-      <main className="w-full max-w-5xl py-2 sm:py-6 px-1.5 sm:px-4 print:p-0 print:m-0">
+      <main className={`w-full max-w-5xl py-2 sm:py-6 px-1.5 sm:px-4 print:p-0 print:m-0 ${isPreview ? 'pb-24 sm:pb-20' : ''}`}>
         <div 
           ref={formRef}
           className="w-full bg-white print:bg-white flex flex-col gap-6 print:gap-0"

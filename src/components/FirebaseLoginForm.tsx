@@ -28,6 +28,7 @@ export interface FirebaseLoginFormProps {
   subtitle?: string;
   onSuccess?: (user: User) => void;
   showGoogleOption?: boolean;
+  showRegisterOption?: boolean;
   className?: string;
 }
 
@@ -38,6 +39,7 @@ export function FirebaseLoginForm({
   subtitle = 'Accede con tu correo electrónico y contraseña o con tu cuenta de Google para sincronizar permisos y personal.',
   onSuccess,
   showGoogleOption = true,
+  showRegisterOption = true,
   className = '',
 }: FirebaseLoginFormProps) {
   const {
@@ -60,6 +62,7 @@ export function FirebaseLoginForm({
   const [resetSentMessage, setResetSentMessage] = useState<string | null>(null);
 
   const switchMode = (nextMode: AuthMode) => {
+    if (nextMode === 'register' && !showRegisterOption) return;
     setMode(nextMode);
     setFieldErrors({});
     setResetSentMessage(null);
@@ -152,7 +155,7 @@ export function FirebaseLoginForm({
       </div>
 
       {/* Selector de modo Iniciar sesión / Crear cuenta */}
-      {mode !== 'reset' && (
+      {showRegisterOption && mode !== 'reset' && (
         <div
           className="grid grid-cols-2 gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg mb-4"
           role="tablist"

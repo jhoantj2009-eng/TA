@@ -38,6 +38,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             subtitle="Valida tus credenciales para acceder al formulario oficial, historial de permisos y directorio de personal."
             onSuccess={onAuthenticated}
             showGoogleOption={false}
+            showRegisterOption={false}
           />
         </div>
 

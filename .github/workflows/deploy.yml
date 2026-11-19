@@ -34,6 +34,8 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build
+        env:
+          VITE_BASE_PATH: /TA/
         run: npm run build
 
       - name: Upload Artifacts
