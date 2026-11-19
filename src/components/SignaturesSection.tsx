@@ -246,7 +246,7 @@ export function SignaturesSection({
   };
 
   return (
-    <div id="signatures-section" className="border border-slate-700 mb-1.5 bg-white shadow-2xs text-[8.5px] sm:text-[9px]">
+    <div id="signatures-section" className="border border-black mb-1.5 bg-white shadow-2xs text-[9px] avoid-break">
       
       {/* ========================================================
           PANEL DE VALIDACIÓN LEGAL DE FIRMAS PREVIO A PDF (PRINT:HIDDEN)
@@ -865,70 +865,70 @@ export function SignaturesSection({
       {/* ========================================================
           DOCUMENTO OFICIAL: SECCIÓN VI - FIRMAS DE AUTORIZACIÓN
           ======================================================== */}
-      <div className="bg-brand-700 text-white font-bold py-1 px-2 text-[10.5px] sm:text-xs uppercase tracking-wider text-center relative border-b border-slate-700 flex items-center justify-center">
+      <div className="bg-brand-700 text-white font-bold py-1.5 px-2 text-[11px] uppercase tracking-wider text-center relative border-b border-black flex items-center justify-center leading-snug">
         <span>VI. FIRMAS DE AUTORIZACIÓN Y PLAN DE EMERGENCIA</span>
       </div>
 
       {/* Contenedor de 3 columnas de firma simétricas (Plan Emergencia, Persona que Autoriza, Coordinador SST) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-700 border-b border-slate-700">
-        
+      <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-black border-b border-black avoid-break">
+
         {/* Columna 1: Encargado del Plan de Emergencia */}
-        <div 
+        <div
           className="flex flex-col bg-white cursor-pointer hover:bg-slate-50/80 transition-colors"
           onClick={() => openModal('emergencyActivator')}
           title="Click para firmar o editar"
         >
-          <div className="bg-brand-100/90 font-bold py-0.5 px-1 text-center border-b border-slate-500 text-brand-950 uppercase text-[8px] sm:text-[8.5px] min-h-[22px] flex items-center justify-center font-black">
+          <div className="bg-brand-100/90 font-bold py-1 px-1.5 text-center border-b border-black text-black uppercase text-[8.5px] min-h-[24px] flex items-center justify-center font-black leading-snug">
             1. Encargado Plan de Emergencias
           </div>
-          
+
           {/* Espacio reservado para firma con línea de base clara */}
-          <div className="px-2 flex flex-col items-center justify-center h-[46px] min-h-[46px] bg-white border-b border-slate-400">
+          <div className="px-2 py-1 flex items-center justify-center min-h-[56px] bg-white border-b border-black">
             {data.emergencyActivator.signature ? (
-              <img 
-                src={data.emergencyActivator.signature} 
-                alt="Firma Emergencia" 
-                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', display: 'block', margin: '0 auto' }} 
+              <img
+                src={data.emergencyActivator.signature}
+                alt="Firma Emergencia"
+                style={{ maxHeight: '46px', maxWidth: '150px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
               />
             ) : (
-              <div className="w-full flex items-center justify-center text-slate-400 italic text-[8px] print:hidden">
+              <div className="w-full flex items-center justify-center text-slate-400 italic text-[8.5px] print:hidden">
                 <Edit3 size={11} className="mr-1 text-brand-700" /> Click para firmar
               </div>
             )}
           </div>
-          <div className="text-center text-[7.5px] sm:text-[8px] text-slate-600 font-bold py-0.5 border-b border-slate-400 bg-brand-50/60 uppercase tracking-tight">
+          <div className="text-center text-[8px] text-slate-700 font-bold py-0.5 border-b border-black bg-brand-50/60 uppercase tracking-tight leading-snug">
             Línea de Firma y Validación
           </div>
 
           {/* Nombre y Cédula */}
-          <div className="flex border-b border-slate-400 h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex border-b border-black min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Nombre:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.emergencyActivator?.name || ''}
                 onChange={(e) => updateData({ emergencyActivator: { ...(data.emergencyActivator || { name: '', docNumber: '', signature: '' }), name: e.target.value } })}
                 aria-label="Nombre Encargado Plan de Emergencias"
-                className="w-full h-full px-1.5 font-semibold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 font-semibold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.emergencyActivator?.name && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
               )}
             </div>
           </div>
-          <div className="flex h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Cédula:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.emergencyActivator?.docNumber || ''}
                 onChange={(e) => updateData({ emergencyActivator: { ...(data.emergencyActivator || { name: '', docNumber: '', signature: '' }), docNumber: e.target.value } })}
                 aria-label="Cédula Encargado Plan de Emergencias"
-                className="w-full h-full px-1.5 tabular-nums font-bold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 tabular-nums font-bold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.emergencyActivator?.docNumber && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
@@ -938,62 +938,62 @@ export function SignaturesSection({
         </div>
 
         {/* Columna 2: Persona que Autoriza el Trabajo (Res. 4272/2021) */}
-        <div 
+        <div
           className="flex flex-col bg-white cursor-pointer hover:bg-slate-50/80 transition-colors"
           onClick={() => openModal('authorizer')}
           title="Click para firmar o editar"
         >
-          <div className="bg-brand-100/90 font-bold py-0.5 px-1 text-center border-b border-slate-500 text-brand-950 uppercase text-[8px] sm:text-[8.5px] min-h-[22px] flex items-center justify-center font-black">
+          <div className="bg-brand-100/90 font-bold py-1 px-1.5 text-center border-b border-black text-black uppercase text-[8.5px] min-h-[24px] flex items-center justify-center font-black leading-snug">
             2. Persona que Autoriza el Trabajo
           </div>
-          
+
           {/* Espacio reservado para firma con línea de base clara */}
-          <div className="px-2 flex flex-col items-center justify-center h-[46px] min-h-[46px] bg-white border-b border-slate-400 relative">
+          <div className="px-2 py-1 flex items-center justify-center min-h-[56px] bg-white border-b border-black relative">
             {data.authorizer?.signature ? (
-              <img 
-                src={data.authorizer.signature} 
-                alt="Firma Persona que Autoriza" 
-                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', display: 'block', margin: '0 auto' }} 
+              <img
+                src={data.authorizer.signature}
+                alt="Firma Persona que Autoriza"
+                style={{ maxHeight: '46px', maxWidth: '150px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
               />
             ) : (
-              <div className="w-full flex items-center justify-center text-brand-700 italic text-[8px] font-semibold print:hidden">
+              <div className="w-full flex items-center justify-center text-brand-700 italic text-[8.5px] font-semibold print:hidden">
                 <Edit3 size={11} className="mr-1 text-brand-700" /> Click para firmar (Res. 4272)
               </div>
             )}
           </div>
-          <div className="text-center text-[7.5px] sm:text-[8px] text-slate-600 font-bold py-0.5 border-b border-slate-400 bg-brand-50/60 uppercase tracking-tight">
+          <div className="text-center text-[8px] text-slate-700 font-bold py-0.5 border-b border-black bg-brand-50/60 uppercase tracking-tight leading-snug">
             Línea de Firma y Autorización
           </div>
 
           {/* Nombre y Cédula editables */}
-          <div className="flex border-b border-slate-400 h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex border-b border-black min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Nombre:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.authorizer?.name || ''}
                 onChange={(e) => updateData({ authorizer: { ...(data.authorizer || { name: '', docNumber: '', role: '', signature: '' }), name: e.target.value } })}
                 aria-label="Nombre Persona que Autoriza el Trabajo"
-                className="w-full h-full px-1.5 font-semibold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 font-semibold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.authorizer?.name && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
               )}
             </div>
           </div>
-          <div className="flex h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Cédula:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.authorizer?.docNumber || ''}
                 onChange={(e) => updateData({ authorizer: { ...(data.authorizer || { name: '', docNumber: '', role: '', signature: '' }), docNumber: e.target.value } })}
                 aria-label="Cédula Persona que Autoriza el Trabajo"
-                className="w-full h-full px-1.5 tabular-nums font-bold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 tabular-nums font-bold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.authorizer?.docNumber && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
@@ -1003,64 +1003,64 @@ export function SignaturesSection({
         </div>
 
         {/* Columna 3: Coordinador de Trabajo en Alturas (SST) */}
-        <div 
+        <div
           className={`flex flex-col bg-white cursor-pointer hover:bg-slate-50/80 transition-colors ${
             !validation.sstValid ? 'ring-1 ring-red-300 bg-red-50/20' : ''
           }`}
           onClick={() => openModal('coordinator')}
           title="Click para firmar o editar"
         >
-          <div className="bg-brand-100/90 font-bold py-0.5 px-1 text-center border-b border-slate-500 text-brand-950 uppercase text-[8px] sm:text-[8.5px] min-h-[22px] flex items-center justify-center font-black">
+          <div className="bg-brand-100/90 font-bold py-1 px-1.5 text-center border-b border-black text-black uppercase text-[8.5px] min-h-[24px] flex items-center justify-center font-black leading-snug">
             3. Coordinador de Trabajo en Alturas (SST)
           </div>
-          
+
           {/* Espacio reservado para firma con línea de base clara */}
-          <div className="px-2 flex flex-col items-center justify-center h-[46px] min-h-[46px] bg-white border-b border-slate-400 relative">
+          <div className="px-2 py-1 flex items-center justify-center min-h-[56px] bg-white border-b border-black relative">
             {data.coordinator.signature ? (
-              <img 
-                src={data.coordinator.signature} 
-                alt="Firma Coordinador" 
-                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', display: 'block', margin: '0 auto' }} 
+              <img
+                src={data.coordinator.signature}
+                alt="Firma Coordinador"
+                style={{ maxHeight: '46px', maxWidth: '150px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
               />
             ) : (
-              <div className="w-full flex items-center justify-center text-red-700 italic text-[8px] font-semibold print:hidden">
+              <div className="w-full flex items-center justify-center text-red-700 italic text-[8.5px] font-semibold print:hidden">
                 <Edit3 size={11} className="mr-1 text-red-600" /> Firma SST Requerida (Click para firmar)
               </div>
             )}
           </div>
-          <div className="text-center text-[7.5px] sm:text-[8px] text-slate-600 font-bold py-0.5 border-b border-slate-400 bg-brand-50/60 uppercase tracking-tight">
+          <div className="text-center text-[8px] text-slate-700 font-bold py-0.5 border-b border-black bg-brand-50/60 uppercase tracking-tight leading-snug">
             Línea de Firma y Autorización
           </div>
 
           {/* Nombre y Cédula */}
-          <div className="flex border-b border-slate-400 h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex border-b border-black min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Nombre:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.coordinator?.name || ''}
                 onChange={(e) => updateData({ coordinator: { ...(data.coordinator || { name: '', docNumber: '', signature: '' }), name: e.target.value } })}
                 aria-label="Nombre Coordinador SST"
-                className="w-full h-full px-1.5 font-semibold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 font-semibold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.coordinator?.name && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
               )}
             </div>
           </div>
-          <div className="flex h-[20px] items-stretch text-[8.5px] sm:text-[9px]">
-            <span className="w-16 px-1 font-bold border-r border-slate-400 bg-brand-50 text-brand-950 flex items-center justify-center text-center shrink-0">
+          <div className="flex min-h-[24px] items-stretch text-[9px]">
+            <span className="w-16 px-1.5 py-0.5 font-bold border-r border-black bg-brand-50 text-black flex items-center justify-center text-center shrink-0">
               Cédula:
             </span>
-            <div className="relative flex-1 min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1 min-w-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={data.coordinator?.docNumber || ''}
                 onChange={(e) => updateData({ coordinator: { ...(data.coordinator || { name: '', docNumber: '', signature: '' }), docNumber: e.target.value } })}
                 aria-label="Cédula Coordinador SST"
-                className="w-full h-full px-1.5 tabular-nums font-bold text-slate-900 text-center bg-transparent outline-none truncate"
+                className="w-full py-0.5 px-1.5 tabular-nums font-bold text-black text-center bg-transparent outline-none leading-snug"
               />
               {!data.coordinator?.docNumber && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-400 italic font-normal print:hidden">---</span>
@@ -1072,78 +1072,77 @@ export function SignaturesSection({
       </div>
 
       {/* Sección VII: Revalidación y Control de Suspensión / Cancelación */}
-      <div className="flex flex-col bg-white">
-        <div className="bg-brand-700 text-white font-bold py-1 px-2 text-center border-b border-slate-700 uppercase tracking-wider text-[8.5px] sm:text-[9.5px] relative flex items-center justify-center">
+      <div className="flex flex-col bg-white avoid-break">
+        <div className="bg-brand-700 text-white font-bold py-1.5 px-2 text-center border-b border-black uppercase tracking-wider text-[10px] relative flex items-center justify-center leading-snug">
           <span>VII. REVALIDACIÓN Y CONTROL DE SUSPENSIÓN / CANCELACIÓN</span>
-          <span className="hidden sm:inline-block absolute right-2 text-[7.5px] text-brand-100 font-normal">Res. 4272/2021 — Art. 18</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-700 text-[8.5px] sm:text-[9px]">
-          
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-black text-[9px]">
+
           {/* Suspensión Temporal */}
           <div className="flex flex-col">
-            <div className="flex flex-row border-b border-slate-400 bg-brand-50/40 h-[21px] items-stretch">
-              <span className="w-24 px-1.5 font-bold border-r border-slate-400 bg-brand-100/90 text-brand-950 flex items-center justify-center text-center shrink-0">
+            <div className="flex flex-row border-b border-black bg-brand-50/40 min-h-[24px] items-stretch">
+              <span className="w-24 px-1.5 py-0.5 font-bold border-r border-black bg-brand-100/90 text-black flex items-center justify-center text-center shrink-0">
                 Suspensión:
               </span>
-              <div className="flex-1 flex items-center justify-center px-1 border-r border-slate-400">
-                <span className="font-semibold text-slate-700 mr-1 shrink-0">Hora Inicio:</span>
+              <div className="flex-1 flex items-center justify-center px-1.5 py-0.5 border-r border-black">
+                <span className="font-semibold text-slate-800 mr-1 shrink-0">Hora Inicio:</span>
                 <TimeSelector
                   value={data.revalidation.suspensionTime}
                   onChange={(val) => updateRevalidation('suspensionTime', val)}
                   ariaLabel="Hora Inicio Suspensión"
-                  className="min-w-[60px] px-1 h-full font-bold text-slate-900"
+                  className="min-w-[60px] px-1 py-0.5 font-bold text-black"
                 />
               </div>
-              <div className="flex-1 flex items-center justify-center px-1">
-                <span className="font-semibold text-slate-700 mr-1 shrink-0">Reanuda:</span>
+              <div className="flex-1 flex items-center justify-center px-1.5 py-0.5">
+                <span className="font-semibold text-slate-800 mr-1 shrink-0">Reanuda:</span>
                 <TimeSelector
                   value={data.revalidation.resumeTime}
                   onChange={(val) => updateRevalidation('resumeTime', val)}
                   ariaLabel="Hora de Reanudación"
-                  className="min-w-[60px] px-1 h-full font-bold text-slate-900"
+                  className="min-w-[60px] px-1 py-0.5 font-bold text-black"
                 />
               </div>
             </div>
-            <div className="flex flex-row items-stretch h-[21px]">
-              <span className="w-24 px-1.5 font-semibold border-r border-slate-400 bg-slate-50 text-slate-800 flex items-center justify-center text-center shrink-0">
+            <div className="flex flex-row items-stretch min-h-[24px]">
+              <span className="w-24 px-1.5 py-0.5 font-semibold border-r border-black bg-slate-50 text-black flex items-center justify-center text-center shrink-0">
                 Motivo:
               </span>
-              <input 
-                type="text" 
-                value={data.revalidation.suspensionReason} 
-                onChange={e => updateRevalidation('suspensionReason', e.target.value)} 
-                className="flex-1 px-2 outline-none bg-transparent placeholder-slate-400 text-slate-800 text-left font-medium" 
-                placeholder="Ej. Lluvia, viento > 30 km/h o tormenta eléctrica..." 
+              <input
+                type="text"
+                value={data.revalidation.suspensionReason}
+                onChange={e => updateRevalidation('suspensionReason', e.target.value)}
+                className="flex-1 px-2 py-0.5 outline-none bg-transparent placeholder-slate-400 text-black text-center font-medium leading-snug"
+                placeholder="Ej. Lluvia, viento > 30 km/h o tormenta eléctrica..."
               />
             </div>
           </div>
 
           {/* Cancelación Definitiva */}
           <div className="flex flex-col">
-            <div className="flex flex-row border-b border-slate-400 bg-brand-50/40 h-[21px] items-stretch">
-              <span className="w-24 px-1.5 font-bold border-r border-slate-400 bg-brand-100/90 text-brand-950 flex items-center justify-center text-center shrink-0">
+            <div className="flex flex-row border-b border-black bg-brand-50/40 min-h-[24px] items-stretch">
+              <span className="w-24 px-1.5 py-0.5 font-bold border-r border-black bg-brand-100/90 text-black flex items-center justify-center text-center shrink-0">
                 Cancelación:
               </span>
-              <div className="flex-1 flex items-center justify-center px-1">
-                <span className="font-semibold text-slate-700 mr-1 shrink-0">Hora Cierre:</span>
+              <div className="flex-1 flex items-center justify-center px-1.5 py-0.5">
+                <span className="font-semibold text-slate-800 mr-1 shrink-0">Hora Cierre:</span>
                 <TimeSelector
                   value={data.revalidation.cancelTime}
                   onChange={(val) => updateRevalidation('cancelTime', val)}
                   ariaLabel="Hora Cierre por Cancelación"
-                  className="min-w-[60px] px-1 h-full font-bold text-slate-900"
+                  className="min-w-[60px] px-1 py-0.5 font-bold text-black"
                 />
               </div>
             </div>
-            <div className="flex flex-row items-stretch h-[21px]">
-              <span className="w-24 px-1.5 font-semibold border-r border-slate-400 bg-slate-50 text-slate-800 flex items-center justify-center text-center shrink-0">
+            <div className="flex flex-row items-stretch min-h-[24px]">
+              <span className="w-24 px-1.5 py-0.5 font-semibold border-r border-black bg-slate-50 text-black flex items-center justify-center text-center shrink-0">
                 Motivo:
               </span>
-              <input 
-                type="text" 
-                value={data.revalidation.cancelReason} 
-                onChange={e => updateRevalidation('cancelReason', e.target.value)} 
-                className="flex-1 px-2 outline-none bg-transparent placeholder-slate-400 text-slate-800 text-left font-medium" 
-                placeholder="Incumplimiento de SST, emergencia en planta, etc." 
+              <input
+                type="text"
+                value={data.revalidation.cancelReason}
+                onChange={e => updateRevalidation('cancelReason', e.target.value)}
+                className="flex-1 px-2 py-0.5 outline-none bg-transparent placeholder-slate-400 text-black text-center font-medium leading-snug"
+                placeholder="Incumplimiento de SST, emergencia en planta, etc."
               />
             </div>
           </div>

@@ -217,44 +217,56 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
     const val = (data.accessSystems?.[system] as any)?.checklist?.[keyStr] || '';
     
     return (
-      <div 
-        key={keyStr} 
-        className={`flex border-b border-slate-300 text-[8.5px] sm:text-[9px] h-[19px] min-h-[19px] items-stretch ${val === 'SI' ? 'bg-emerald-50/70' : val === 'NO' ? 'bg-red-50/70' : val === 'N.A' ? 'bg-slate-100/70' : 'bg-white hover:bg-slate-50'}`}
+      <div
+        key={keyStr}
+        className={`flex border-b border-black text-[9px] min-h-[21px] items-stretch ${val === 'SI' ? 'bg-emerald-50/70' : val === 'NO' ? 'bg-red-50/70' : val === 'N.A' ? 'bg-slate-100/70' : 'bg-white hover:bg-slate-50'}`}
       >
-        <div 
-          className="flex-1 px-1.5 border-r border-slate-400 flex items-center cursor-pointer select-none overflow-hidden text-left"
+        <div
+          className="flex-1 px-1.5 py-[3px] border-r border-black flex items-center cursor-pointer select-none text-left min-w-0"
           onClick={() => updateChecklist(system, keyStr, val === 'SI' ? 'NO' : val === 'NO' ? 'N.A' : 'SI')}
         >
-          <span className={`leading-none truncate ${val === 'SI' ? 'font-bold text-emerald-950' : val === 'NO' ? 'font-bold text-red-950' : val === 'N.A' ? 'text-slate-400 line-through' : 'text-slate-800 font-medium'}`} title={item.label}>
+          <span className={`leading-snug break-words ${val === 'SI' ? 'font-bold text-emerald-950' : val === 'NO' ? 'font-bold text-red-950' : val === 'N.A' ? 'text-slate-600 font-medium' : 'text-black font-medium'}`} title={item.label}>
             {item.label}
           </span>
         </div>
-        <div className="w-[72px] flex divide-x divide-slate-400 shrink-0 bg-white">
-          <div 
+        <div className="w-[72px] flex divide-x divide-black shrink-0 bg-white">
+          <div
             className={`w-[24px] flex items-center justify-center cursor-pointer select-none ${val === 'SI' ? 'bg-emerald-100' : 'hover:bg-emerald-50'}`}
             onClick={() => updateChecklist(system, keyStr, 'SI')}
             title="Marcar SI"
           >
-            <div className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${val === 'SI' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
-              {val === 'SI' ? 'X' : ''}
+            <div className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${val === 'SI' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
+              {val === 'SI' && (
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           </div>
-          <div 
+          <div
             className={`w-[24px] flex items-center justify-center cursor-pointer select-none ${val === 'NO' ? 'bg-red-100' : 'hover:bg-red-50'}`}
             onClick={() => updateChecklist(system, keyStr, 'NO')}
             title="Marcar NO"
           >
-            <div className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${val === 'NO' ? 'bg-red-600 text-white' : 'bg-white'}`}>
-              {val === 'NO' ? 'X' : ''}
+            <div className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${val === 'NO' ? 'bg-red-600 text-white' : 'bg-white'}`}>
+              {val === 'NO' && (
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           </div>
-          <div 
+          <div
             className={`w-[24px] flex items-center justify-center cursor-pointer select-none ${val === 'N.A' ? 'bg-slate-200' : 'hover:bg-slate-100'}`}
             onClick={() => updateChecklist(system, keyStr, 'N.A')}
             title="Marcar N.A"
           >
-            <div className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${val === 'N.A' ? 'bg-slate-700 text-white' : 'bg-white'}`}>
-              {val === 'N.A' ? 'X' : ''}
+            <div className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${val === 'N.A' ? 'bg-slate-700 text-white' : 'bg-white'}`}>
+              {val === 'N.A' && (
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           </div>
         </div>
@@ -274,15 +286,15 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
     const isApt = hasFailure ? 'No' : allYes && !sysData?.isApt ? 'Si' : sysData?.isApt;
 
     return (
-      <div key={system} className="border border-slate-500 flex flex-col bg-white shadow-2xs rounded-xs overflow-hidden">
+      <div key={system} className="border border-black flex flex-col bg-white shadow-2xs rounded-xs overflow-hidden avoid-break">
         {/* Cabecera del Submódulo */}
-        <div className="bg-brand-100/90 text-brand-950 font-bold px-2 h-[22px] text-[8.5px] sm:text-[9.5px] border-b border-slate-500 flex justify-between items-center">
-          <span className="uppercase tracking-tight truncate flex-1 text-left font-black">{title}</span>
+        <div className="bg-brand-100/90 text-black font-bold px-2 py-1 min-h-[24px] text-[9.5px] border-b border-black flex justify-between items-center gap-1">
+          <span className="uppercase tracking-tight flex-1 text-left font-black leading-snug">{title}</span>
           <div className="print:hidden flex items-center gap-1 shrink-0 ml-1">
             <button
               type="button"
               onClick={() => markAllYes(system)}
-              className={`px-1.5 py-0.5 rounded-xs text-[7.5px] font-semibold border flex items-center gap-0.5 transition-colors cursor-pointer ${
+              className={`print:hidden px-1.5 py-0.5 rounded-xs text-[7.5px] font-semibold border flex items-center gap-0.5 transition-colors cursor-pointer ${
                 allYes
                   ? 'bg-emerald-700 text-white border-emerald-800'
                   : 'bg-white/80 hover:bg-emerald-50 text-emerald-800 border-emerald-300 hover:border-emerald-400'
@@ -295,7 +307,7 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
             <button
               type="button"
               onClick={() => updateSystem(system, 'used', '')}
-              className="px-1.5 py-0.5 rounded-xs text-[7.5px] font-semibold bg-white/80 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 hover:border-red-300 flex items-center gap-0.5 transition-colors cursor-pointer"
+              className="print:hidden px-1.5 py-0.5 rounded-xs text-[7.5px] font-semibold bg-white/80 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 hover:border-red-300 flex items-center gap-0.5 transition-colors cursor-pointer"
               title="Quitar sistema de acceso"
             >
               <X size={10} />
@@ -305,14 +317,14 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
         </div>
 
         {/* Cabecera de Checklist */}
-        <div className="bg-slate-100 text-slate-800 text-[8px] sm:text-[8.5px] font-bold flex border-b border-slate-400 h-[19px] items-stretch">
-          <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center text-left font-bold">
+        <div className="bg-slate-100 text-black text-[8.5px] font-bold flex border-b border-black min-h-[22px] items-stretch">
+          <div className="flex-1 px-1.5 py-0.5 border-r border-black flex items-center text-left font-bold leading-snug">
             Criterio de Inspección Preoperacional
           </div>
-          <div className="w-[72px] flex divide-x divide-slate-400 text-center shrink-0">
+          <div className="w-[72px] flex divide-x divide-black text-center shrink-0">
             <div className="w-[24px] flex items-center justify-center text-emerald-950 font-black">SI</div>
             <div className="w-[24px] flex items-center justify-center text-red-950 font-black">NO</div>
-            <div className="w-[24px] flex items-center justify-center text-slate-700 font-black">N.A</div>
+            <div className="w-[24px] flex items-center justify-center text-slate-800 font-black">N.A</div>
           </div>
         </div>
 
@@ -324,13 +336,13 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
         {/* Dictamen Destacado al pie: ¿SISTEMA APTO Y SEGURO PARA OPERAR? */}
         {extraApt && (
           <>
-            <div className={`flex border-t border-slate-500 text-[8px] sm:text-[8.5px] h-[20px] items-stretch ${hasFailure ? 'bg-red-50' : 'bg-brand-50'}`}>
-              <div className={`flex-1 px-2 border-r border-slate-500 font-black uppercase flex items-center justify-between ${hasFailure ? 'text-red-950' : 'text-brand-950'}`}>
+            <div className={`flex ${items.length === 0 ? 'border-t border-black' : ''} text-[8.5px] min-h-[23px] items-stretch ${hasFailure ? 'bg-red-50' : 'bg-brand-50'}`}>
+              <div className={`flex-1 px-2 py-0.5 border-r border-black font-black uppercase flex items-center justify-between leading-snug ${hasFailure ? 'text-red-950' : 'text-black'}`}>
                 <span>¿SISTEMA APTO Y SEGURO PARA OPERAR?</span>
               </div>
-              <div className="w-[72px] flex divide-x divide-slate-500 shrink-0 bg-white">
-                <div 
-                  className={`w-[36px] flex items-center justify-center gap-1 font-black ${
+              <div className="w-[72px] flex divide-x divide-black shrink-0 bg-white">
+                <div
+                  className={`w-[36px] flex items-center justify-center gap-0.5 font-black ${
                     hasFailure
                       ? 'opacity-45 print:opacity-100 cursor-not-allowed text-slate-400 print:text-slate-900'
                       : isApt === 'Si'
@@ -343,13 +355,17 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
                   }}
                   title={hasFailure ? 'No puede ser apto mientras exista una condición en NO' : 'Marcar sistema como apto'}
                 >
-                  <span className="text-[7.5px]">SÍ</span>
-                  <div className={`w-3 h-3 border border-slate-800 flex items-center justify-center font-black text-[8px] leading-none ${isApt === 'Si' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
-                    {isApt === 'Si' ? 'X' : ''}
+                  <span className="text-[7.5px] leading-normal">SÍ</span>
+                  <div className={`w-3 h-3 border border-black flex items-center justify-center ${isApt === 'Si' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
+                    {isApt === 'Si' && (
+                      <svg viewBox="0 0 12 12" className="w-2 h-2 block" aria-hidden="true">
+                        <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                      </svg>
+                    )}
                   </div>
                 </div>
-                <div 
-                  className={`w-[36px] flex items-center justify-center gap-1 font-black ${
+                <div
+                  className={`w-[36px] flex items-center justify-center gap-0.5 font-black ${
                     hasFailure
                       ? 'bg-red-100 text-red-950 cursor-default'
                       : isApt === 'No'
@@ -362,9 +378,13 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
                   }}
                   title={hasFailure ? 'Marcado automáticamente en NO por criterio incumplido' : 'Marcar sistema como no apto'}
                 >
-                  <span className="text-[7.5px]">NO</span>
-                  <div className={`w-3 h-3 border border-slate-800 flex items-center justify-center font-black text-[8px] leading-none ${isApt === 'No' ? 'bg-red-600 text-white' : 'bg-white'}`}>
-                    {isApt === 'No' ? 'X' : ''}
+                  <span className="text-[7.5px] leading-normal">NO</span>
+                  <div className={`w-3 h-3 border border-black flex items-center justify-center ${isApt === 'No' ? 'bg-red-600 text-white' : 'bg-white'}`}>
+                    {isApt === 'No' && (
+                      <svg viewBox="0 0 12 12" className="w-2 h-2 block" aria-hidden="true">
+                        <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                      </svg>
+                    )}
                   </div>
                 </div>
               </div>
@@ -386,9 +406,9 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
   };
 
   return (
-    <div className="border border-slate-700 mb-1.5 bg-white shadow-2xs">
+    <div className="border border-black mb-1.5 bg-white shadow-2xs avoid-break">
       {/* Header Sección con azul petróleo corporativo */}
-      <div className="bg-brand-700 text-white font-bold py-1 px-2 text-[10.5px] sm:text-xs uppercase tracking-wider text-center relative border-b border-slate-700 flex items-center justify-center">
+      <div className="bg-brand-700 text-white font-bold py-1.5 px-2 text-[11px] uppercase tracking-wider text-center relative border-b border-black flex items-center justify-center leading-snug">
         <span>V. SISTEMAS DE ACCESO Y EQUIPOS DE TRABAJO</span>
       </div>
 
@@ -405,7 +425,7 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
                 key={sys.key}
                 type="button"
                 onClick={() => updateSystem(sys.key, 'used', isSelected ? '' : 'SI')}
-                className={`min-h-[42px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
+                className={`print:hidden min-h-[42px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-brand-700 text-white border-brand-800 hover:bg-brand-800 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-brand-400'
@@ -425,12 +445,12 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
 
       {/* Bloques de sistemas seleccionados */}
       {visibleSystems.length === 0 ? (
-        <div className="p-3 text-center text-[9px] sm:text-[10px] text-slate-500 italic bg-white">
+        <div className="p-3 text-center text-[10px] text-slate-600 italic bg-white">
           N.A. — No se seleccionaron sistemas de acceso.
         </div>
       ) : (
         <div
-          className={`p-1.5 grid gap-2 text-[8px] sm:text-[8.5px] items-start ${
+          className={`p-1.5 grid gap-2 text-[8.5px] items-start ${
             visibleSystems.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
           }`}
         >
@@ -441,12 +461,12 @@ export function AccessSystemsSection({ data, updateData }: AccessSystemsProps) {
       )}
 
       {/* Campo inferior ancho para Observaciones Técnicas */}
-      <div className="border-t border-slate-700 bg-brand-50/40 flex flex-col">
-        <div className="bg-brand-100/90 font-bold px-2 py-0.5 text-[8px] sm:text-[8.5px] border-b border-slate-500 uppercase text-brand-950 text-left tracking-tight">
+      <div className="border-t border-black bg-brand-50/40 flex flex-col avoid-break">
+        <div className="bg-brand-100/90 font-bold px-2 py-1 text-[9px] border-b border-black uppercase text-black text-left tracking-tight leading-snug">
           Observaciones Técnicas de Sistemas de Acceso y Medidas Complementarias:
         </div>
-        <textarea 
-          className="w-full min-h-[24px] max-h-[38px] p-1 px-2 text-[8.5px] leading-tight outline-none resize-none bg-transparent placeholder-slate-400 text-slate-800 text-left font-medium"
+        <textarea
+          className="w-full min-h-[30px] p-1.5 px-2 text-[9.5px] leading-snug outline-none resize-none bg-transparent placeholder-slate-400 text-black text-center font-medium"
           value={data.observations}
           onChange={e => updateData({ observations: e.target.value })}
           placeholder="Anote aquí cualquier hallazgo, limitación de carga, desniveles del terreno o consideraciones del fabricante..."

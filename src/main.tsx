@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+import { AppRouter } from './components/AppRouter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CloudSyncProvider } from './components/CloudSyncContext';
 import './index.css';
@@ -10,7 +10,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <CloudSyncProvider>
-        <App />
+        <AppRouter />
       </CloudSyncProvider>
     </ErrorBoundary>
   </StrictMode>,

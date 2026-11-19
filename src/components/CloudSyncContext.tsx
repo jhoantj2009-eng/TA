@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+} from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import {
   PermitData,
@@ -27,11 +35,60 @@ interface DirectoryOpenOptions {
   onSelect?: DirectoryPickCallback;
 }
 
+function getFirebaseAuthErrorMessage(err: unknown, fallback: string): string {
+  const code = (err as { code?: string } | null)?.code || '';
+  const msg = err instanceof Error ? err.message : String(err || '');
+  const activeProjectId = auth.app.options.projectId || 'desconocido';
+
+  console.error('[Firebase Auth Error]', { code, projectId: activeProjectId, error: err });
+
+  if (code === 'auth/popup-closed-by-user' || msg.includes('popup-closed-by-user')) {
+    return 'Se cerró la ventana de inicio de sesión antes de completar el acceso.';
+  }
+  if (
+    code === 'auth/invalid-credential' ||
+    code === 'auth/wrong-password' ||
+    code === 'auth/user-not-found'
+  ) {
+    return 'Correo o contraseña incorrectos. Verifica tus credenciales e intenta nuevamente.';
+  }
+  if (code === 'auth/invalid-email') {
+    return 'El formato del correo electrónico no es válido.';
+  }
+  if (code === 'auth/email-already-in-use') {
+    return 'Ya existe una cuenta registrada con este correo electrónico.';
+  }
+  if (code === 'auth/weak-password') {
+    return 'La contraseña debe tener al menos 6 caracteres.';
+  }
+  if (code === 'auth/too-many-requests') {
+    return 'Demasiados intentos fallidos. Espera unos minutos antes de volver a intentarlo.';
+  }
+  if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found') {
+    return `El acceso con correo y contraseña no está habilitado en el proyecto Firebase "${activeProjectId}". Verifica Authentication → Sign-in method en Firebase Console.`;
+  }
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    return `El dominio "${host}" no está autorizado en Firebase Authentication (proyecto "${activeProjectId}"). Agrégalo en Authentication → Settings → Authorized domains.`;
+  }
+  if (code === 'auth/admin-restricted-operation') {
+    return `El registro de nuevos usuarios está restringido en el proyecto "${activeProjectId}". Crea el usuario desde Firebase Console o habilita el registro.`;
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Error de conexión con Firebase. Verifica tu red e intenta de nuevo.';
+  }
+  if (code === 'auth/user-disabled') {
+    return 'Esta cuenta ha sido deshabilitada por el administrador.';
+  }
+  return code ? `${fallback} (${code})` : fallback;
+}
+
 interface CloudSyncContextValue {
   user: User | null;
   authReady: boolean;
   signingIn: boolean;
   authError: string | null;
+  clearAuthError: () => void;
   permits: PermitHistoryRecord[];
   personnel: PersonnelRecord[];
   dataLoading: boolean;
@@ -39,6 +96,9 @@ interface CloudSyncContextValue {
   activePermitStatus: PermitStatus | null;
   setActivePermitMeta: (id: string | null, status: PermitStatus | null) => void;
   signInWithGoogle: () => Promise<User | null>;
+  signInWithEmail: (email: string, password: string) => Promise<User | null>;
+  registerWithEmail: (email: string, password: string) => Promise<User | null>;
+  sendPasswordReset: (email: string) => Promise<boolean>;
   signOutGoogle: () => Promise<void>;
   savePermit: (data: PermitData, forceNew?: boolean) => Promise<{ id: string; status: PermitStatus } | null>;
   deletePermit: (permitId: string) => Promise<void>;
@@ -52,13 +112,16 @@ interface CloudSyncContextValue {
   isHistoryOpen: boolean;
   openHistory: () => void;
   closeHistory: () => void;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
 }
 
 const CloudSyncContext = createContext<CloudSyncContextValue | null>(null);
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [authReady, setAuthReady] = useState<boolean>(false);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [permits, setPermits] = useState<PermitHistoryRecord[]>([]);
@@ -70,18 +133,42 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
   const [directoryOptions, setDirectoryOptions] = useState<DirectoryOpenOptions>({});
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const clearAuthError = useCallback(() => setAuthError(null), []);
 
   useEffect(() => {
+    let active = true;
+
     const unsub = onAuthStateChanged(auth, (currentUser) => {
+      if (!active) return;
       setUser(currentUser);
       setAuthReady(true);
       if (!currentUser) {
         setPermits([]);
         setPersonnel([]);
         setDataLoading(false);
+        setActivePermitId(null);
+        setActivePermitStatus(null);
+        setIsHistoryOpen(false);
+        setIsDirectoryOpen(false);
+        setIsAuthModalOpen(false);
       }
     });
-    return () => unsub();
+
+    auth.authStateReady().then(() => {
+      if (!active) return;
+      setUser(auth.currentUser);
+      setAuthReady(true);
+    }).catch(() => {
+      if (!active) return;
+      setAuthReady(true);
+    });
+
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -133,24 +220,94 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      setUser(result.user);
+      setAuthReady(true);
+      setIsAuthModalOpen(false);
       return result.user;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'No se pudo iniciar sesión con Google.';
-      if (msg.includes('popup-closed-by-user')) {
-        setAuthError('Se cerró la ventana de inicio de sesión antes de completar el acceso.');
-      } else {
-        setAuthError('Error al iniciar sesión con Google. Inténtalo de nuevo.');
-      }
+      setAuthError(
+        getFirebaseAuthErrorMessage(err, 'Error al iniciar sesión con Google. Inténtalo de nuevo.')
+      );
       return null;
     } finally {
       setSigningIn(false);
     }
   }, []);
 
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    setSigningIn(true);
+    setAuthError(null);
+    try {
+      const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+      setUser(result.user);
+      setAuthReady(true);
+      setIsAuthModalOpen(false);
+      return result.user;
+    } catch (err) {
+      setAuthError(
+        getFirebaseAuthErrorMessage(err, 'No se pudo iniciar sesión. Verifica tus datos.')
+      );
+      return null;
+    } finally {
+      setSigningIn(false);
+    }
+  }, []);
+
+  const registerWithEmail = useCallback(async (email: string, password: string) => {
+    setSigningIn(true);
+    setAuthError(null);
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      setUser(result.user);
+      setAuthReady(true);
+      setIsAuthModalOpen(false);
+      return result.user;
+    } catch (err) {
+      setAuthError(
+        getFirebaseAuthErrorMessage(err, 'No se pudo crear la cuenta. Intenta nuevamente.')
+      );
+      return null;
+    } finally {
+      setSigningIn(false);
+    }
+  }, []);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    setSigningIn(true);
+    setAuthError(null);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      return true;
+    } catch (err) {
+      setAuthError(
+        getFirebaseAuthErrorMessage(
+          err,
+          'No se pudo enviar el correo de recuperación. Verifica la dirección ingresada.'
+        )
+      );
+      return false;
+    } finally {
+      setSigningIn(false);
+    }
+  }, []);
+
   const signOutGoogle = useCallback(async () => {
-    await signOut(auth);
-    setActivePermitId(null);
-    setActivePermitStatus(null);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('[Firebase SignOut Error]', err);
+    } finally {
+      setUser(null);
+      setPermits([]);
+      setPersonnel([]);
+      setDataLoading(false);
+      setAuthError(null);
+      setActivePermitId(null);
+      setActivePermitStatus(null);
+      setIsHistoryOpen(false);
+      setIsDirectoryOpen(false);
+      setIsAuthModalOpen(false);
+    }
   }, []);
 
   const setActivePermitMeta = useCallback((id: string | null, status: PermitStatus | null) => {
@@ -219,6 +376,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 
   const openHistory = useCallback(() => setIsHistoryOpen(true), []);
   const closeHistory = useCallback(() => setIsHistoryOpen(false), []);
+  const openAuthModal = useCallback(() => {
+    setAuthError(null);
+    setIsAuthModalOpen(true);
+  }, []);
+  const closeAuthModal = useCallback(() => {
+    setAuthError(null);
+    setIsAuthModalOpen(false);
+  }, []);
 
   return (
     <CloudSyncContext.Provider
@@ -227,6 +392,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         authReady,
         signingIn,
         authError,
+        clearAuthError,
         permits,
         personnel,
         dataLoading,
@@ -234,6 +400,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         activePermitStatus,
         setActivePermitMeta,
         signInWithGoogle,
+        signInWithEmail,
+        registerWithEmail,
+        sendPasswordReset,
         signOutGoogle,
         savePermit,
         deletePermit,
@@ -246,6 +415,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         isHistoryOpen,
         openHistory,
         closeHistory,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
       }}
     >
       {children}

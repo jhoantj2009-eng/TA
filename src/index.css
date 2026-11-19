@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: Arial, 'Helvetica Neue', Helvetica, ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -13,7 +13,6 @@ table {
   border-collapse: collapse !important;
 }
 
-/* En desktop/print mantener table-layout fixed por defecto */
 @media (min-width: 768px) {
   table {
     table-layout: fixed !important;
@@ -25,22 +24,34 @@ th, td {
   box-sizing: border-box;
 }
 
+/* Evitar cortes internos en filas y bloques formales */
+.avoid-break {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
 /* Imágenes de firmas normalizadas */
-img[alt*="Firma"], 
+img[alt*="Firma"],
 img[alt*="firma"] {
   object-fit: contain !important;
-  max-height: 40px !important;
-  max-width: 120px !important;
   display: block !important;
-  margin: 0 auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 /* Modo Vista Previa */
+.preview-mode {
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
 .preview-mode .print\:hidden:not(.keep-in-preview) {
   display: none !important;
 }
 .preview-mode .print\:block {
   display: block !important;
+}
+.preview-mode .print\:table-cell {
+  display: table-cell !important;
 }
 .preview-mode .print\:p-0 {
   padding: 0 !important;
@@ -51,39 +62,43 @@ img[alt*="firma"] {
 .preview-mode .print\:shadow-none {
   box-shadow: none !important;
 }
+.preview-mode .print\:border-r-0,
+.pdf-render-desktop .print\:border-r-0 {
+  border-right-width: 0px !important;
+}
 
-/* Quitar bordes y fondos de inputs en vista previa */
-.preview-mode input, 
-.preview-mode textarea, 
+/* Quitar bordes, fondos y placeholders en vista previa */
+.preview-mode input,
+.preview-mode textarea,
 .preview-mode select {
   pointer-events: none;
   background-color: transparent !important;
   border-color: transparent !important;
   resize: none;
+  line-height: 1.3 !important;
+}
+
+.preview-mode input::placeholder,
+.preview-mode textarea::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+.preview-mode .pdf-page:not(.pdf-page-unified) {
+  min-height: 263mm;
+  padding: 20px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 /* Enforce desktop layout in preview and PDF rendering (Garantiza que al descargar en móvil no se desorganice) */
 .preview-mode .header-official-table,
 .pdf-render-desktop .header-official-table {
-  display: flex !important;
-  flex-direction: row !important;
-}
-.preview-mode .header-official-table > div:nth-child(1),
-.pdf-render-desktop .header-official-table > div:nth-child(1) {
-  width: 25% !important;
-  border-right-width: 2px !important;
-  border-bottom-width: 0px !important;
-}
-.preview-mode .header-official-table > div:nth-child(2),
-.pdf-render-desktop .header-official-table > div:nth-child(2) {
-  width: 50% !important;
-  border-right-width: 2px !important;
-  border-bottom-width: 0px !important;
-}
-.preview-mode .header-official-table > div:nth-child(3),
-.pdf-render-desktop .header-official-table > div:nth-child(3) {
-  width: 25% !important;
-  border-bottom-width: 0px !important;
+  display: table !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
 }
 
 /* Visibility */
@@ -110,6 +125,10 @@ img[alt*="firma"] {
 .preview-mode .md\:grid,
 .pdf-render-desktop .md\:grid {
   display: grid !important;
+}
+.preview-mode .print\:table-cell,
+.pdf-render-desktop .print\:table-cell {
+  display: table-cell !important;
 }
 
 /* Grids Unconditional Enforcements */
@@ -290,20 +309,85 @@ img[alt*="firma"] {
 }
 .preview-mode .overflow-x-auto,
 .pdf-render-desktop .overflow-x-auto {
-  overflow-x: visible !important;
+  overflow: visible !important;
 }
 .preview-mode table,
 .pdf-render-desktop table {
   width: 100% !important;
   min-width: 0 !important;
   table-layout: fixed !important;
+  border-collapse: collapse !important;
 }
 
 .pdf-page {
   box-sizing: border-box;
+  width: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 0;
 }
 
-/* Unified PDF Canvas Rendering */
+@media (min-width: 640px) {
+  .pdf-page {
+    padding: 20px;
+  }
+}
+
+/* Evitar que las secciones o contenedores de formulario colapsen */
+.pdf-page > * {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.pdf-page .flex > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.shrink-0):not(.flex-none),
+.pdf-page .flex > textarea:not(.shrink-0):not(.flex-none),
+.pdf-page .flex > select:not(.shrink-0):not(.flex-none),
+.pdf-page .flex > .relative.flex-1 {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 22px;
+}
+
+.pdf-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.pdf-page textarea,
+.pdf-page select {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 22px;
+  text-align: center;
+}
+
+.pdf-page input.text-left,
+.pdf-page textarea.text-left,
+.pdf-page select.text-left {
+  text-align: left;
+}
+
+.pdf-page .print\:hidden input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.text-center):not(.text-right),
+.pdf-page .print\:hidden textarea:not(.text-center):not(.text-right),
+.pdf-page .print\:hidden select:not(.text-center):not(.text-right) {
+  text-align: left;
+}
+
+.pdf-page td > input,
+.pdf-page td > button {
+  width: 100%;
+  min-width: 0;
+}
+
+.pdf-page .flex-1 {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* Unified PDF Canvas Rendering (Alineado a proporción Carta/A4 sin cortes) */
+.pdf-render-desktop,
+.pdf-render-desktop *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon) {
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
+}
+
 .pdf-render-desktop {
   background-color: #ffffff !important;
   color: #000000 !important;
@@ -320,10 +404,12 @@ img[alt*="firma"] {
 
 .pdf-render-desktop .pdf-page {
   width: 1000px !important;
+  min-width: 1000px !important;
   max-width: 1000px !important;
-  min-height: auto !important;
+  min-height: 1290px !important;
+  flex-shrink: 0 !important;
   box-sizing: border-box !important;
-  padding: 14px 18px !important;
+  padding: 20px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
@@ -334,12 +420,25 @@ img[alt*="firma"] {
 
 .pdf-render-desktop .pdf-page-unified {
   width: 1000px !important;
+  min-width: 1000px !important;
   max-width: 1000px !important;
   min-height: auto !important;
+  padding: 20px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
-  gap: 5px !important;
+  gap: 6px !important;
+}
+
+.pdf-render-desktop .flex-1,
+.preview-mode .flex-1 {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+
+.pdf-render-desktop .justify-center,
+.preview-mode .justify-center {
+  justify-content: center !important;
 }
 
 .pdf-render-desktop input,
@@ -347,21 +446,59 @@ img[alt*="firma"] {
 .pdf-render-desktop textarea {
   color: #000000 !important;
   -webkit-text-fill-color: #000000 !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+}
+
+.pdf-render-desktop input.text-left,
+.pdf-render-desktop select.text-left,
+.pdf-render-desktop textarea.text-left {
+  text-align: left !important;
+}
+
+.pdf-render-desktop tr,
+.pdf-render-desktop .avoid-break {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+.pdf-render-desktop .pdf-page table th,
+.pdf-render-desktop .pdf-page table td,
+.preview-mode .pdf-page table th,
+.preview-mode .pdf-page table td,
+.pdf-render-desktop .pdf-page .border-slate-500,
+.pdf-render-desktop .pdf-page .border-slate-600,
+.preview-mode .pdf-page .border-slate-500,
+.preview-mode .pdf-page .border-slate-600,
+.pdf-render-desktop .pdf-page .divide-slate-500 > :not([hidden]) ~ :not([hidden]),
+.preview-mode .pdf-page .divide-slate-500 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #000000 !important;
 }
 
 @media print {
   @page {
     size: letter portrait;
-    margin: 6mm;
+    margin: 7mm 8mm;
   }
-  
-  body {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    background-color: white !important;
+
+  html, body {
+    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main {
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
   }
 
   .pdf-page-unified {
@@ -371,40 +508,56 @@ img[alt*="firma"] {
     display: flex !important;
     flex-direction: column !important;
     gap: 6px !important;
-    padding: 0 !important;
+    padding: 4mm !important;
     margin: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .pdf-page-unified > div,
-  .pdf-page-unified > section,
-  .pdf-page-unified > .border {
+  .pdf-page:not(.pdf-page-unified) {
+    width: 100% !important;
+    max-width: 210mm !important;
+    min-height: 263mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    padding: 4mm !important;
+    margin: 0 auto !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .pdf-page:not(.pdf-page-unified):last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .pdf-page > div,
+  .pdf-page > section,
+  .avoid-break,
+  tr {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  .pdf-page:not(.pdf-page-unified) {
-    page-break-inside: avoid;
-    break-inside: avoid;
-    page-break-after: always;
-    break-after: page;
-    min-height: auto;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    padding: 0 !important;
-    margin: 0 !important;
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
   }
 
-  .pdf-page:last-child {
-    page-break-after: auto;
-    break-after: auto;
+  thead {
+    display: table-header-group !important;
   }
 
-  /* Asegurar bordes nítidos y sin saltos en impresión */
-  .border, .border-t, .border-b, .border-l, .border-r, 
-  .border-2 {
-    border-color: inherit;
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  .border, .border-t, .border-b, .border-l, .border-r, .border-2 {
+    border-color: #000000 !important;
   }
 
   input, textarea, select {
@@ -412,5 +565,129 @@ img[alt*="firma"] {
     background: transparent !important;
     resize: none !important;
     color: #000000 !important;
+    line-height: 1.3 !important;
+    text-align: center !important;
+  }
+
+  input.text-left,
+  textarea.text-left,
+  select.text-left {
+    text-align: left !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: transparent !important;
+    opacity: 0 !important;
   }
 }
+
+/* Ajustes exclusivos para renderizado del PDF descargado (.pdf-render-desktop) */
+.pdf-render-desktop {
+  line-height: 1.2;
+  overflow: visible;
+}
+
+.pdf-render-desktop .pdf-page {
+  box-sizing: border-box !important;
+}
+
+.pdf-render-desktop .pdf-page > * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.pdf-render-desktop table,
+.pdf-render-desktop th,
+.pdf-render-desktop td {
+  border: 1px solid #000000 !important;
+  border-collapse: collapse !important;
+}
+
+.pdf-render-desktop th,
+.pdf-render-desktop td {
+  vertical-align: middle !important;
+  overflow: visible !important;
+  line-height: 1.2 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+.pdf-render-desktop .header-official-table td.p-0 {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.pdf-render-desktop th .truncate,
+.pdf-render-desktop td .truncate {
+  overflow: visible !important;
+  white-space: normal !important;
+}
+
+.pdf-render-desktop td > button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 1px !important;
+  overflow: visible !important;
+  line-height: 1.2 !important;
+}
+
+.pdf-render-desktop table td > div.w-fit {
+  white-space: nowrap !important;
+}
+
+.pdf-render-desktop footer span,
+.pdf-render-desktop footer div {
+  white-space: nowrap !important;
+}
+
+.pdf-render-desktop .divide-x {
+  align-items: stretch !important;
+}
+
+.pdf-render-desktop .divide-x > :not([hidden]) ~ :not([hidden]) {
+  border-left: 1px solid #000000 !important;
+  border-right: 0 !important;
+  align-self: stretch !important;
+}
+
+.pdf-render-desktop [class*="min-h-[2"] > .flex:not(.divide-x):not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop [class*="min-h-[2"] > .flex-1:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop [class*="min-h-[2"] > span.flex:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop [class*="min-h-[2"] > div.flex:not(.divide-x):not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop div[class*="min-h-[24px]"].flex.items-center:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop .text-center.uppercase.border-b.bg-brand-50\/60 {
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 1px !important;
+  overflow: visible !important;
+  line-height: 1.2 !important;
+}
+
+.pdf-render-desktop [class*="min-h-[2"] > .text-center:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop [class*="min-h-[2"] > .justify-center:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop div[class*="min-h-[24px]"].justify-center:not(.print\:hidden):not([data-pdf-hide]):not([data-html2canvas-ignore]),
+.pdf-render-desktop .text-center.uppercase.border-b.bg-brand-50\/60 {
+  justify-content: center !important;
+}
+
+.pdf-render-desktop .text-center.uppercase.border-b.bg-brand-50\/60 {
+  min-height: 18px !important;
+  padding-bottom: 2px !important;
+}
+
+.pdf-render-desktop [class*="min-h-[2"] span {
+  line-height: 1.2 !important;
+}
+
+.pdf-render-desktop .print\:hidden,
+.pdf-render-desktop [data-pdf-hide],
+.pdf-render-desktop [data-html2canvas-ignore] {
+  display: none !important;
+}
+
+

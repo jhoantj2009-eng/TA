@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
-import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, KeyRound, Lock, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Smartphone, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Smartphone, Building2, ChevronDown, ChevronUp, LogIn, LogOut } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PermitData, PermitHistoryRecord, PermitStatus, initialPermitData } from './types';
 import { getStoredHeaderConfig, fetchServerHeaderConfig, saveStoredHeaderConfig, resetServerHeaderConfig, DEFAULT_INVEASAS_LOGO, DEFAULT_DOC_CONFIG } from './defaultLogo';
 import { savePermitDataToStorage, loadAutoSavedPermitData, clearAutoSavedPermitData, getLastAutoSaveTimestamp, AUTOSAVE_INTERVAL_MS, formatAutoSaveTime, hasSignificantDraftData } from './utils/autoSave';
-import { checkIsAuthenticated, lockApp } from './utils/security';
+import { lockApp } from './utils/security';
+import { auth } from './firebase';
 import { AccessLockScreen } from './components/AccessLockScreen';
 import { SecurityModal } from './components/SecurityModal';
 import { Header } from './components/Header';
@@ -20,6 +21,7 @@ import { AlertTriangle, X } from 'lucide-react';
 import { useCloudSync } from './components/CloudSyncContext';
 import { PermitHistoryModal } from './components/PermitHistoryModal';
 import { PersonnelDirectoryModal } from './components/PersonnelDirectoryModal';
+import { AuthModal } from './components/AuthModal';
 import { buildDuplicatedPermitData, getNextPermitNumber } from './services/firestoreStorage';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -50,82 +52,272 @@ function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
   }
 }
 
+function replaceCloneFormControlsWithStaticText(clone: HTMLElement): void {
+  const controls = Array.from(
+    clone.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input, textarea, select')
+  );
+
+  controls.forEach((el) => {
+    if (el instanceof HTMLInputElement) {
+      const t = (el.type || 'text').toLowerCase();
+      if (['checkbox', 'radio', 'file', 'hidden', 'button', 'submit', 'reset'].includes(t)) {
+        return;
+      }
+    }
+
+    const computed = window.getComputedStyle(el);
+    if (computed.display === 'none' || el.getClientRects().length === 0) {
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      return;
+    }
+
+    const isTextarea = el instanceof HTMLTextAreaElement;
+    let valueText = '';
+    if (el instanceof HTMLSelectElement) {
+      const selectedOpt = el.options[el.selectedIndex];
+      valueText = el.value ? (selectedOpt ? selectedOpt.text : el.value) : '';
+    } else {
+      valueText = el.value || '';
+    }
+
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const hasFluidWidth = /\bw-full\b/.test(cls) || /\bflex-1\b/.test(cls);
+    const hasFixedWidth = !hasFluidWidth && /\bw-(?:\d+|\[[^\]]+\])\b/.test(cls);
+
+    const div = document.createElement('div');
+    div.className = cls;
+    div.style.boxSizing = 'border-box';
+
+    if (hasFixedWidth) {
+      div.style.width = `${rect.width}px`;
+      div.style.flexShrink = '0';
+    } else {
+      div.style.width = '100%';
+      div.style.minWidth = '0';
+      div.style.maxWidth = '100%';
+      if (/\bflex-1\b/.test(cls) || computed.flexGrow !== '0') {
+        div.style.flex = '1 1 0%';
+      }
+    }
+
+    if (isTextarea) {
+      div.style.minHeight = `${rect.height}px`;
+    } else {
+      div.style.height = `${rect.height}px`;
+    }
+
+    div.style.fontFamily = computed.fontFamily;
+    div.style.fontSize = computed.fontSize;
+    div.style.fontWeight = computed.fontWeight;
+    div.style.color = computed.color;
+    div.style.letterSpacing = computed.letterSpacing;
+    div.style.textTransform = computed.textTransform;
+    div.style.textAlign = computed.textAlign;
+    div.style.paddingTop = computed.paddingTop;
+    div.style.paddingRight = computed.paddingRight;
+    div.style.paddingBottom = computed.paddingBottom;
+    div.style.paddingLeft = computed.paddingLeft;
+
+    const align = computed.textAlign;
+    let justifyContent = 'flex-start';
+    if (align === 'center') {
+      justifyContent = 'center';
+    } else if (align === 'right' || align === 'end') {
+      justifyContent = 'flex-end';
+    }
+
+    div.style.display = 'flex';
+    div.style.alignItems = 'center';
+    div.style.justifyContent = justifyContent;
+    div.style.lineHeight = '1.15';
+    div.style.border = 'none';
+    div.style.background = 'transparent';
+    div.style.overflow = 'visible';
+    div.style.whiteSpace = isTextarea ? 'pre-wrap' : 'normal';
+    div.style.overflowWrap = 'break-word';
+
+    div.textContent = valueText;
+    el.replaceWith(div);
+  });
+}
+
+function clampOverflowingPageElements(pageElements: HTMLElement[], maxWidthPx: number): void {
+  pageElements.forEach((pageEl) => {
+    pageEl.style.boxSizing = 'border-box';
+    if (pageEl.scrollWidth <= maxWidthPx) return;
+
+    const pageRect = pageEl.getBoundingClientRect();
+    const candidates = Array.from(
+      pageEl.querySelectorAll<HTMLElement>('table, .overflow-x-auto, .pdf-page > *, div')
+    );
+
+    candidates.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > pageEl.clientWidth - 36 || rect.right > pageRect.right - 18 || el.scrollWidth > el.clientWidth) {
+        el.style.maxWidth = '100%';
+        el.style.minWidth = '0';
+        el.style.boxSizing = 'border-box';
+        if (el.tagName === 'TABLE') {
+          el.style.width = '100%';
+          el.style.tableLayout = 'fixed';
+        }
+      }
+    });
+  });
+}
+
+async function capturePageCanvas(pageEl: HTMLElement, targetWidth: number): Promise<HTMLCanvasElement> {
+  const baseOptions = {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    width: targetWidth,
+    windowWidth: targetWidth,
+    x: 0,
+    y: 0,
+    scrollX: 0,
+    scrollY: 0,
+  };
+
+  try {
+    const foreignCanvas = await html2canvas(pageEl, {
+      ...baseOptions,
+      foreignObjectRendering: true,
+    });
+    if (!isCanvasBlank(foreignCanvas)) {
+      return foreignCanvas;
+    }
+  } catch {
+    // Respaldo automático con el renderizador estándar si foreignObjectRendering falla
+  }
+
+  return html2canvas(pageEl, baseOptions);
+}
+
 function ContinuityHeader({ data, pageNum, totalPages }: { data: PermitData; pageNum: number; totalPages: number }) {
   return (
-    <div className="border border-slate-700 mb-1.5 bg-white text-xs shadow-2xs">
-      <div className="grid grid-cols-12 divide-x divide-slate-700 items-stretch text-[9px]">
-        {/* Columna 1: Logo */}
-        <div className="col-span-2 p-1 flex items-center justify-center bg-white min-h-[44px]">
-          {data.companyLogo ? (
-            <img src={data.companyLogo} alt="Logo" className="max-h-9 max-w-[110px] object-contain" />
-          ) : (
-            <div className="font-black text-brand-700 text-[10.5px] tracking-wider border border-brand-700 px-2 py-0.5 bg-brand-50 rounded-xs">
-              DCM
-            </div>
-          )}
-        </div>
+    <div className="mb-2 avoid-break">
+      <table className="header-official-table w-full border-collapse border-2 border-black bg-white text-[10.5px]">
+        <colgroup>
+          <col style={{ width: '18%' }} />
+          <col style={{ width: '52%' }} />
+          <col style={{ width: '30%' }} />
+        </colgroup>
+        <tbody>
+          <tr>
+            {/* Columna 1: Logo Corporativo */}
+            <td className="border border-black p-1.5 text-center align-middle bg-white">
+              <div className="flex items-center justify-center min-h-[84px]">
+                {data.companyLogo ? (
+                  <img
+                    src={data.companyLogo}
+                    alt="Logo Empresa"
+                    className="max-h-16 max-w-full object-contain mx-auto block"
+                  />
+                ) : (
+                  <div className="inline-block font-black text-brand-700 text-[11px] tracking-wider border border-brand-700 px-2.5 py-1 bg-brand-50 rounded-xs">
+                    DCM
+                  </div>
+                )}
+              </div>
+            </td>
 
-        {/* Columna 2 & 3: Título Institucional y Subtítulo de Continuidad */}
-        <div className="col-span-6 p-1 px-2.5 flex flex-col justify-center bg-white text-left">
-          <div className="font-black text-[10.5px] uppercase tracking-wide text-brand-950 leading-tight flex flex-wrap items-baseline gap-x-2">
-            <span>{data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría'}</span>
-          </div>
-          <div className="text-[8.5px] text-slate-800 font-bold flex flex-wrap items-center gap-1.5 mt-0.5">
-            <span>PERMISO DE TRABAJO EN ALTURAS</span>
-            <span className="text-brand-700 font-black uppercase text-[7.5px] bg-brand-50 px-1 py-0.2 rounded border border-brand-200">
-              Continuación y Control (Res. 4272/2021)
-            </span>
-          </div>
-        </div>
+            {/* Columna 2: Identificación Institucional y Continuidad */}
+            <td className="border border-black px-3 py-1.5 text-center align-middle bg-white">
+              <div className="uppercase text-[10px] text-slate-800 font-bold tracking-tight leading-snug">
+                SISTEMA DE GESTIÓN DE LA SEGURIDAD Y SALUD EN EL TRABAJO
+              </div>
+              <div className="font-black text-[12px] uppercase tracking-wide text-black leading-snug mt-0.5">
+                {data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría'}
+                {data.companyNit?.trim() ? (
+                  <span className="text-[9.5px] font-bold text-slate-800 ml-2">
+                    NIT: {data.companyNit.trim()}
+                  </span>
+                ) : null}
+              </div>
+              <div className="text-[10px] text-black font-extrabold uppercase tracking-wide leading-snug mt-1">
+                PERMISO DE TRABAJO EN ALTURAS — CONTINUACIÓN Y CONTROL (RES. 4272/2021)
+              </div>
+            </td>
 
-        {/* Columna 4 & 5: Matriz de Metadatos Auditable */}
-        <div className="col-span-4 grid grid-cols-2 divide-x divide-slate-700 bg-slate-50/50">
-          <div className="flex flex-col divide-y divide-slate-700">
-            <div className="px-1.5 py-0.5 flex items-center justify-between">
-              <span className="text-slate-600 font-bold text-[8px] uppercase">Permiso N°:</span>
-              <span className="font-black text-brand-950 font-mono text-[9px]">{data.permitNumber || '001'}</span>
-            </div>
-            <div className="px-1.5 py-0.5 flex items-center justify-between">
-              <span className="text-slate-600 font-bold text-[8px] uppercase">Código:</span>
-              <span className="font-bold text-slate-900 font-mono text-[8.5px]">{data.documentCode || 'F-SST-045'}</span>
-            </div>
-          </div>
-          <div className="flex flex-col divide-y divide-slate-700">
-            <div className="px-1.5 py-0.5 flex items-center justify-between">
-              <span className="text-slate-600 font-bold text-[8px] uppercase">Versión:</span>
-              <span className="font-bold text-slate-900 font-mono text-[8.5px]">{data.documentVersion || '01'}</span>
-            </div>
-            <div className="px-1.5 py-0.5 flex items-center justify-between bg-brand-100/80">
-              <span className="text-brand-950 font-black text-[8px] uppercase">Página:</span>
-              <span className="font-black text-brand-950 font-mono text-[8.5px]">{pageNum} DE {totalPages}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+            {/* Columna 3: Matriz de Metadatos sin rowSpan */}
+            <td className="border border-black p-0 align-middle bg-white h-full">
+              <div className="flex flex-col divide-y divide-black text-[10px] h-full">
+                <div className="flex items-stretch min-h-[21px] flex-1">
+                  <div className="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">
+                    Permiso N°
+                  </div>
+                  <div className="w-[58%] px-1.5 py-0.5 font-black text-[10.5px] text-black flex items-center justify-center leading-snug">
+                    {data.permitNumber || '001'}
+                  </div>
+                </div>
+                <div className="flex items-stretch min-h-[21px] flex-1">
+                  <div className="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">
+                    Código
+                  </div>
+                  <div className="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">
+                    {data.documentCode || 'F-SST-045'}
+                  </div>
+                </div>
+                <div className="flex items-stretch min-h-[21px] flex-1">
+                  <div className="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">
+                    Versión
+                  </div>
+                  <div className="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">
+                    {data.documentVersion || '01'}
+                  </div>
+                </div>
+                <div className="flex items-stretch min-h-[21px] flex-1">
+                  <div className="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">
+                    Vigencia
+                  </div>
+                  <div className="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">
+                    {data.documentValidity || 'JUNIO 2021'}
+                  </div>
+                </div>
+                <div className="flex items-stretch min-h-[21px] flex-1 bg-brand-100/80">
+                  <div className="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 border-r border-black flex items-center justify-center leading-snug">
+                    Página
+                  </div>
+                  <div className="w-[58%] px-1.5 py-0.5 font-black text-[10px] text-black flex items-center justify-center leading-snug">
+                    Pág. {pageNum} de {totalPages}
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function DocumentFooter({ pageNum, totalPages, isUnified = false }: { pageNum: number; totalPages: number; isUnified?: boolean }) {
   return (
-    <div className="mt-auto pt-1 border-t border-slate-700 text-[8px] text-slate-700 flex justify-between items-center bg-white">
-      <div className="flex items-center gap-1.5">
-        <span className="font-black text-white bg-brand-700 px-1 py-0.2 rounded-xs text-[7px] uppercase tracking-wider">
+    <footer className="mt-auto pt-1.5 pb-0.5 border-t-2 border-black text-[9px] text-black flex justify-between items-center bg-white avoid-break">
+      <div className="flex items-center gap-2 leading-normal">
+        <div className="font-black text-white bg-brand-700 px-2 py-1 rounded-xs text-[7.5px] uppercase tracking-wider flex items-center justify-center leading-normal shrink-0">
           Auditable SG-SST
-        </span>
-        <span className="font-medium text-[7.5px]">
-          Permiso de Trabajo en Alturas conforme a la <strong>Resolución 4272 de 2021</strong> del Ministerio del Trabajo de Colombia.
+        </div>
+        <span className="font-medium text-[8.5px] text-slate-900 leading-normal">
+          Permiso de Trabajo en Alturas conforme a la <strong className="font-bold text-black">Resolución 4272 de 2021</strong> del Ministerio del Trabajo de Colombia.
         </span>
       </div>
-      <span className="font-bold text-slate-900 font-mono text-[8px] shrink-0 ml-2">
+      <span className="font-bold text-black text-[9px] shrink-0 ml-3 leading-normal">
         {isUnified ? 'Documento Oficial Completo' : `Pág. ${pageNum} de ${totalPages}`}
       </span>
-    </div>
+    </footer>
   );
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => checkIsAuthenticated());
+  const [isLocallyLocked, setIsLocallyLocked] = useState<boolean>(false);
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
   const [data, setData] = useState<PermitData>(() => {
     const storedConfig = getStoredHeaderConfig();
@@ -178,6 +370,7 @@ export default function App() {
 
   const {
     user,
+    authReady,
     permits,
     personnel,
     activePermitId,
@@ -186,6 +379,8 @@ export default function App() {
     savePermit,
     openHistory,
     openDirectory,
+    openAuthModal,
+    signOutGoogle,
   } = useCloudSync();
   const [isSavingToHistory, setIsSavingToHistory] = useState(false);
 
@@ -609,10 +804,22 @@ export default function App() {
       }
     });
 
-    // Ocultar botones interactivos de edición y elementos print:hidden
-    const printHiddenElements = clone.querySelectorAll('.print\\:hidden, .keep-in-preview');
+    // Marcar botones de pantalla (sin tocar botones de fecha/hora ni casillas/firmas) y ocultar todo elemento print:hidden / data-pdf-hide
+    const cloneButtons = clone.querySelectorAll<HTMLButtonElement>('button');
+    cloneButtons.forEach((btn) => {
+      const isDateOrTimeSelector =
+        Boolean(btn.closest('td > button')) ||
+        Boolean(btn.querySelector('.tabular-nums')) ||
+        /Fecha|Hora|Válido|Suspensión|Reanudación|Cancelación/i.test(btn.getAttribute('aria-label') || '');
+      if (!isDateOrTimeSelector) {
+        btn.setAttribute('data-pdf-hide', 'true');
+        btn.style.setProperty('display', 'none', 'important');
+      }
+    });
+
+    const printHiddenElements = clone.querySelectorAll('.print\\:hidden, [data-pdf-hide], [data-html2canvas-ignore], .keep-in-preview');
     printHiddenElements.forEach((el) => {
-      (el as HTMLElement).style.display = 'none';
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
     });
 
     // Si el usuario estaba en modo continuo en pantalla, organizamos el clon en las 2 páginas oficiales
@@ -639,33 +846,65 @@ export default function App() {
           page1.appendChild(footer1);
         }
 
-        // Página 2: Continuidad, EPP, Sistemas Acceso, Firmas, Cierre
+        // Página 2: Continuidad, EPP, Sistemas Acceso y Firmas
+        const esc = (s: string) =>
+          s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        const companyLabel = esc(data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría');
+        const nitBadge = data.companyNit?.trim()
+          ? ` <span style="font-size:9.5px;font-weight:700;font-family:monospace;color:#1e293b;margin-left:8px;">NIT: ${esc(data.companyNit.trim())}</span>`
+          : '';
         const continuityHdr = document.createElement('div');
-        continuityHdr.className = 'border border-slate-700 mb-1.5 bg-white text-xs shadow-2xs';
+        continuityHdr.className = 'mb-2 avoid-break';
         continuityHdr.innerHTML = `
-          <div class="grid grid-cols-12 divide-x divide-slate-700 items-stretch text-[9px]">
-            <div class="col-span-2 p-1 flex items-center justify-center bg-white min-h-[44px]">
-              ${data.companyLogo ? `<img src="${data.companyLogo}" alt="Logo" style="max-height: 38px; max-width: 110px; object-fit: contain;" />` : `<div class="font-black text-brand-700 text-[10.5px] tracking-wider border border-brand-700 px-2 py-0.5 bg-brand-50 rounded-xs">DCM</div>`}
-            </div>
-            <div class="col-span-6 p-1 px-2.5 flex flex-col justify-center bg-white text-left">
-              <div class="font-black text-[10.5px] uppercase tracking-wide text-brand-950 leading-tight">${data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría'}${data.companyNit?.trim() ? ` <span class="text-[8.5px] font-bold font-mono text-slate-700 ml-1.5">NIT: ${data.companyNit.trim()}</span>` : ''}</div>
-              <div class="text-[8.5px] text-slate-800 font-bold flex flex-wrap items-center gap-1.5 mt-0.5">
-                <span>PERMISO DE TRABAJO EN ALTURAS</span>
-                <span class="text-slate-400 font-normal">|</span>
-                <span class="text-brand-700 font-black uppercase text-[7.5px] bg-brand-50 px-1 py-0.2 rounded border border-brand-200">Continuación y Control (Res. 4272/2021)</span>
-              </div>
-            </div>
-            <div class="col-span-4 grid grid-cols-2 divide-x divide-slate-700 bg-slate-50/50">
-              <div class="flex flex-col divide-y divide-slate-700">
-                <div class="px-1.5 py-0.5 flex items-center justify-between"><span class="text-slate-600 font-bold text-[8px] uppercase">Permiso N°:</span><span class="font-black text-brand-950 font-mono text-[9px]">${data.permitNumber || '001'}</span></div>
-                <div class="px-1.5 py-0.5 flex items-center justify-between"><span class="text-slate-600 font-bold text-[8px] uppercase">Código:</span><span class="font-bold text-slate-900 font-mono text-[8.5px]">${data.documentCode || 'F-SST-045'}</span></div>
-              </div>
-              <div class="flex flex-col divide-y divide-slate-700">
-                <div class="px-1.5 py-0.5 flex items-center justify-between"><span class="text-slate-600 font-bold text-[8px] uppercase">Versión:</span><span class="font-bold text-slate-900 font-mono text-[8.5px]">${data.documentVersion || '01'}</span></div>
-                <div class="px-1.5 py-0.5 flex items-center justify-between bg-brand-100/80"><span class="text-brand-950 font-black text-[8px] uppercase">Página:</span><span class="font-black text-brand-950 font-mono text-[8.5px]">2 DE 2</span></div>
-              </div>
-            </div>
-          </div>
+          <table class="header-official-table w-full border-collapse border-2 border-black bg-white text-[10.5px]">
+            <colgroup>
+              <col style="width: 18%;" />
+              <col style="width: 52%;" />
+              <col style="width: 30%;" />
+            </colgroup>
+            <tbody>
+              <tr>
+                <td class="border border-black p-1.5 text-center align-middle bg-white">
+                  <div class="flex items-center justify-center min-h-[84px]">
+                    ${data.companyLogo ? `<img src="${data.companyLogo}" alt="Logo Empresa" class="max-h-16 max-w-full object-contain mx-auto block" />` : `<div class="inline-block font-black text-brand-700 text-[11px] tracking-wider border border-brand-700 px-2.5 py-1 bg-brand-50 rounded-xs">DCM</div>`}
+                  </div>
+                </td>
+                <td class="border border-black px-3 py-1.5 text-center align-middle bg-white">
+                  <div class="uppercase text-[10px] text-slate-800 font-bold tracking-tight leading-snug">SISTEMA DE GESTIÓN DE LA SEGURIDAD Y SALUD EN EL TRABAJO</div>
+                  <div class="font-black text-[12px] uppercase tracking-wide text-black leading-snug mt-0.5">${companyLabel}${nitBadge}</div>
+                  <div class="text-[10px] text-black font-extrabold uppercase tracking-wide leading-snug mt-1">PERMISO DE TRABAJO EN ALTURAS — CONTINUACIÓN Y CONTROL (RES. 4272/2021)</div>
+                </td>
+                <td class="border border-black p-0 align-middle bg-white h-full">
+                  <div class="flex flex-col divide-y divide-black text-[10px] h-full">
+                    <div class="flex items-stretch min-h-[21px] flex-1">
+                      <div class="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">Permiso N°</div>
+                      <div class="w-[58%] px-1.5 py-0.5 font-black text-[10.5px] text-black flex items-center justify-center leading-snug">${esc(data.permitNumber || '001')}</div>
+                    </div>
+                    <div class="flex items-stretch min-h-[21px] flex-1">
+                      <div class="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">Código</div>
+                      <div class="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">${esc(data.documentCode || 'F-SST-045')}</div>
+                    </div>
+                    <div class="flex items-stretch min-h-[21px] flex-1">
+                      <div class="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">Versión</div>
+                      <div class="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">${esc(data.documentVersion || '01')}</div>
+                    </div>
+                    <div class="flex items-stretch min-h-[21px] flex-1">
+                      <div class="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 bg-brand-50/70 border-r border-black flex items-center justify-center leading-snug">Vigencia</div>
+                      <div class="w-[58%] px-1.5 py-0.5 font-bold text-[10px] text-black flex items-center justify-center leading-snug">${esc(data.documentValidity || 'JUNIO 2021')}</div>
+                    </div>
+                    <div class="flex items-stretch min-h-[21px] flex-1 bg-brand-100/80">
+                      <div class="w-[42%] px-1.5 py-0.5 font-bold text-[9.5px] text-slate-900 border-r border-black flex items-center justify-center leading-snug">Página</div>
+                      <div class="w-[58%] px-1.5 py-0.5 font-black text-[10px] text-black flex items-center justify-center leading-snug">Pág. 2 de 2</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         `;
         page2.appendChild(continuityHdr);
 
@@ -689,11 +928,12 @@ export default function App() {
       pageEl.style.width = `${targetWidth}px`;
       pageEl.style.minWidth = `${targetWidth}px`;
       pageEl.style.maxWidth = `${targetWidth}px`;
+      pageEl.style.minHeight = '1290px';
       pageEl.style.boxSizing = 'border-box';
       pageEl.style.display = 'flex';
       pageEl.style.flexDirection = 'column';
       pageEl.style.justifyContent = 'flex-start';
-      pageEl.style.padding = '14px 18px';
+      pageEl.style.padding = '20px';
       pageEl.style.backgroundColor = '#ffffff';
       pageEl.style.boxShadow = 'none';
       pageEl.style.border = 'none';
@@ -724,8 +964,75 @@ export default function App() {
         })
       );
 
+      // 2.5 Recortar márgenes transparentes de firmas guardadas para que queden centradas en cada casilla
+      const sigImgs = Array.from(
+        clone.querySelectorAll<HTMLImageElement>('img[alt*="Firma"], img[alt*="firma"]')
+      );
+      await Promise.all(
+        sigImgs.map(async (img) => {
+          try {
+            if (!img.naturalWidth || !img.naturalHeight) return;
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth;
+            c.height = img.naturalHeight;
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0);
+            const pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+            let minX = c.width;
+            let minY = c.height;
+            let maxX = -1;
+            let maxY = -1;
+            for (let y = 0; y < c.height; y++) {
+              for (let x = 0; x < c.width; x++) {
+                const idx = (y * c.width + x) * 4;
+                const a = pixels[idx + 3];
+                const r = pixels[idx];
+                const g = pixels[idx + 1];
+                const b = pixels[idx + 2];
+                if (a > 20 && (r < 245 || g < 245 || b < 245)) {
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+            if (maxX >= minX && maxY >= minY) {
+              const pad = 6;
+              const sx = Math.max(0, minX - pad);
+              const sy = Math.max(0, minY - pad);
+              const sw = Math.min(c.width - sx, maxX - minX + 1 + pad * 2);
+              const sh = Math.min(c.height - sy, maxY - minY + 1 + pad * 2);
+              const out = document.createElement('canvas');
+              out.width = sw;
+              out.height = sh;
+              const outCtx = out.getContext('2d');
+              if (outCtx) {
+                outCtx.drawImage(c, sx, sy, sw, sh, 0, 0, sw, sh);
+                const croppedUrl = out.toDataURL('image/png');
+                await new Promise<void>((res) => {
+                  img.onload = () => res();
+                  img.onerror = () => res();
+                  img.src = croppedUrl;
+                  if (img.complete) res();
+                });
+              }
+            }
+          } catch {
+            // Ignorar imágenes con restricción CORS
+          }
+        })
+      );
+
       // 3. Pausa para reflow y aplicación de estilos completos
       await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 3.5 Convertir campos de formulario visibles del clon a texto fijo usando medidas reales post-reflow
+      replaceCloneFormControlsWithStaticText(clone);
+
+      // 3.6 Verificar que ninguna página supere el ancho de 1000px para preservar bordes derechos
+      clampOverflowingPageElements(pageElements, targetWidth);
 
       // 4. Configurar PDF Carta (Letter)
       const pdf = new jsPDF({
@@ -746,20 +1053,8 @@ export default function App() {
       for (let i = 0; i < pageElements.length; i++) {
         const pageEl = pageElements[i];
 
-        // 5. Captura con html2canvas: resolución nítida 2x y coordenadas exactas en (0, 0)
-        const canvas = await html2canvas(pageEl, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: targetWidth,
-          windowWidth: targetWidth,
-          x: 0,
-          y: 0,
-          scrollX: 0,
-          scrollY: 0,
-        });
+        // 5. Captura con html2canvas (prioriza foreignObjectRendering con respaldo automático)
+        const canvas = await capturePageCanvas(pageEl, targetWidth);
 
         if (isCanvasBlank(canvas)) continue;
 
@@ -822,11 +1117,16 @@ export default function App() {
 
   const handleLock = () => {
     lockApp();
-    setIsAuthenticated(false);
+    setIsLocallyLocked(true);
   };
 
-  if (!isAuthenticated) {
-    return <AccessLockScreen onUnlock={() => setIsAuthenticated(true)} />;
+  // Defensa en profundidad: nunca exponer el formulario ni sus funciones sin usuario autenticado en Firebase
+  if (!authReady || !user || !auth.currentUser) {
+    return null;
+  }
+
+  if (isLocallyLocked) {
+    return <AccessLockScreen onUnlock={() => setIsLocallyLocked(false)} />;
   }
 
   return (
@@ -1233,51 +1533,49 @@ export default function App() {
                     <div className="my-1.5 border-t border-slate-800" />
 
                     <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Seguridad y Formulario
+                      Seguridad y Cuenta
                     </div>
 
-                    <button
-                      type="button"
-                      id="open-security-modal-btn"
-                      role="menuitem"
-                      onClick={() => {
-                        setIsHeaderMenuOpen(false);
-                        setIsSecurityModalOpen(true);
-                      }}
-                      className="w-full px-3.5 py-2.5 text-left text-slate-200 hover:bg-slate-800 hover:text-white flex items-center gap-2.5 transition-colors min-h-[42px]"
-                    >
-                      <KeyRound size={15} className="text-brand-300 shrink-0" />
-                      <span>Código de acceso</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="quick-lock-app-btn"
-                      role="menuitem"
-                      onClick={() => {
-                        setIsHeaderMenuOpen(false);
-                        handleLock();
-                      }}
-                      className="w-full px-3.5 py-2.5 text-left text-slate-200 hover:bg-slate-800 hover:text-white flex items-center gap-2.5 transition-colors min-h-[42px]"
-                    >
-                      <Lock size={15} className="text-slate-400 shrink-0" />
-                      <span>Bloquear aplicación</span>
-                    </button>
-
-                    <div className="my-1 border-t border-slate-800" />
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setIsHeaderMenuOpen(false);
-                        handleReset();
-                      }}
-                      className="w-full px-3.5 py-2.5 text-left text-red-400 hover:bg-red-950/60 hover:text-red-300 flex items-center gap-2.5 transition-colors min-h-[42px]"
-                    >
-                      <RefreshCw size={15} className="shrink-0" />
-                      <span>Limpiar formulario</span>
-                    </button>
+                    {user ? (
+                      <div className="px-3 py-2.5 flex items-center justify-between gap-2 bg-slate-800/60 mx-2 my-1.5 rounded-lg border border-slate-700/80">
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">
+                            Conectado
+                          </div>
+                          <div className="text-[11px] text-slate-200 truncate" title={user.email || ''}>
+                            {user.email || user.displayName || 'Usuario Firebase'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          aria-label="Cerrar sesión"
+                          title="Cerrar sesión"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setIsHeaderMenuOpen(false);
+                            lockApp();
+                            await signOutGoogle();
+                          }}
+                          className="min-w-[36px] min-h-[36px] p-2 rounded-lg bg-red-950/50 border border-red-800/60 text-red-300 hover:bg-red-600 hover:text-white hover:border-red-500 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                        >
+                          <LogOut size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsHeaderMenuOpen(false);
+                          openAuthModal();
+                        }}
+                        className="w-full px-3.5 py-2.5 text-left text-emerald-300 hover:bg-slate-800 hover:text-emerald-200 flex items-center gap-2.5 transition-colors min-h-[42px]"
+                      >
+                        <LogIn size={15} className="shrink-0" />
+                        <span>Iniciar sesión en la nube</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1403,7 +1701,7 @@ export default function App() {
         >
           {/* ===================== FORMATO UNIFICADO CONTINUO (CERO ESPACIOS EN BLANCO) ===================== */}
           {layoutMode === 'unified' && (
-            <section id="pdf-page-unified" className="pdf-page pdf-page-unified bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+            <section id="pdf-page-unified" className="pdf-page pdf-page-unified bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
               <Header data={data} updateData={updateData} pageNum={1} totalPages={1} isUnified={true} onNotify={showLogoFeedback} />
               <GeneralInfo data={data} updateData={updateData} />
               <WorkersSection data={data} updateData={updateData} />
@@ -1424,7 +1722,7 @@ export default function App() {
           {layoutMode === '2-pages' && (
             <>
               {/* Página 1 de 2: Encabezado Oficial, Info General, Trabajadores Autorizados y Aptitud Psicofísica */}
-              <section id="pdf-page-1" className="pdf-page bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+              <section id="pdf-page-1" className="pdf-page bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
                 <Header data={data} updateData={updateData} pageNum={1} totalPages={2} onNotify={showLogoFeedback} />
                 <GeneralInfo data={data} updateData={updateData} />
                 <WorkersSection data={data} updateData={updateData} />
@@ -1433,7 +1731,7 @@ export default function App() {
               </section>
 
               {/* Página 2 de 2: Encabezado Continuidad, EPP, Sistemas Acceso, Firmas Autorizadas y Cierre del Permiso */}
-              <section id="pdf-page-2" className="pdf-page bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+              <section id="pdf-page-2" className="pdf-page bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
                 <ContinuityHeader data={data} pageNum={2} totalPages={2} />
                 <PPESection data={data} updateData={updateData} />
                 <AccessSystemsSection data={data} updateData={updateData} />
@@ -1452,7 +1750,7 @@ export default function App() {
           {layoutMode === '3-pages' && (
             <>
               {/* Página 1 de 3: Encabezado, Info General y Registro Completo de Trabajadores */}
-              <section id="pdf-page-1" className="pdf-page bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+              <section id="pdf-page-1" className="pdf-page bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
                 <Header data={data} updateData={updateData} pageNum={1} totalPages={3} onNotify={showLogoFeedback} />
                 <GeneralInfo data={data} updateData={updateData} />
                 <WorkersSection data={data} updateData={updateData} />
@@ -1460,7 +1758,7 @@ export default function App() {
               </section>
 
               {/* Página 2 de 3: Aptitud Psicofísica (Salud) y Elementos de Protección Personal (EPP) */}
-              <section id="pdf-page-2" className="pdf-page bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+              <section id="pdf-page-2" className="pdf-page bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
                 <ContinuityHeader data={data} pageNum={2} totalPages={3} />
                 <HealthSection data={data} updateData={updateData} />
                 <PPESection data={data} updateData={updateData} />
@@ -1468,7 +1766,7 @@ export default function App() {
               </section>
 
               {/* Página 3 de 3: Sistemas de Acceso, Firmas, Revalidación y Cierre Legal */}
-              <section id="pdf-page-3" className="pdf-page bg-white p-2.5 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
+              <section id="pdf-page-3" className="pdf-page bg-white p-4 sm:p-5 print:p-0 shadow-lg print:shadow-none border border-gray-200 print:border-none flex flex-col gap-1.5">
                 <ContinuityHeader data={data} pageNum={3} totalPages={3} />
                 <AccessSystemsSection data={data} updateData={updateData} />
                 <SignaturesSection 
@@ -1549,6 +1847,7 @@ export default function App() {
         onNotify={showLogoFeedback}
       />
       <PersonnelDirectoryModal onNotify={showLogoFeedback} />
+      <AuthModal />
 
       {/* Modal de Progreso para Generación de PDF (Garantiza experiencia limpia en celulares) */}
       {isGeneratingPdf && (

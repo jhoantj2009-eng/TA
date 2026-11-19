@@ -11,7 +11,6 @@ import {
   MapPin,
   Calendar,
   Users,
-  CheckCircle2,
   LogOut,
   AlertCircle,
   Loader2,
@@ -20,6 +19,7 @@ import { PermitData, PermitHistoryRecord, PermitStatus } from '../types';
 import { useCloudSync } from './CloudSyncContext';
 import { buildDuplicatedPermitData, getNextPermitNumber } from '../services/firestoreStorage';
 import { validatePPETools } from './PPESection';
+import { FirebaseLoginForm } from './FirebaseLoginForm';
 
 interface PermitHistoryModalProps {
   currentData: PermitData;
@@ -48,13 +48,10 @@ export function PermitHistoryModal({
 }: PermitHistoryModalProps) {
   const {
     user,
-    signingIn,
-    authError,
     permits,
     dataLoading,
     activePermitId,
     activePermitStatus,
-    signInWithGoogle,
     signOutGoogle,
     savePermit,
     deletePermit,
@@ -210,35 +207,14 @@ export function PermitHistoryModal({
 
         {/* Auth Gate or Content */}
         {!user ? (
-          <div className="p-6 sm:p-10 flex flex-col items-center justify-center text-center gap-4 overflow-y-auto">
-            <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700">
-              <History size={28} />
+          <div className="p-6 sm:p-8 flex flex-col items-center justify-center gap-4 overflow-y-auto">
+            <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shrink-0">
+              <History size={24} />
             </div>
-            <div className="max-w-md">
-              <h3 className="text-base font-bold text-slate-900 mb-1.5">
-                Conecta tu cuenta para ver tu historial en la nube
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Inicia sesión con Google para guardar tus permisos de trabajo en alturas, buscarlos por número, área o trabajador, y duplicarlos en segundos desde cualquier dispositivo.
-              </p>
-            </div>
-
-            {authError && (
-              <div className="max-w-md w-full p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 text-left">
-                <AlertCircle size={16} className="shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={signInWithGoogle}
-              disabled={signingIn}
-              className="min-h-[44px] px-5 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors cursor-pointer disabled:opacity-60"
-            >
-              {signingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              <span>{signingIn ? 'Conectando...' : 'Continuar con Google'}</span>
-            </button>
+            <FirebaseLoginForm
+              title="Conecta tu cuenta para ver tu historial en la nube"
+              subtitle="Inicia sesión con tu correo y contraseña o con Google para guardar y consultar permisos de trabajo en alturas."
+            />
           </div>
         ) : (
           <>

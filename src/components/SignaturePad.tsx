@@ -28,6 +28,54 @@ export function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
   }
 }
 
+/**
+ * Recorta márgenes transparentes alrededor de la firma para que quede centrada en todas las celdas.
+ */
+function trimSignatureCanvas(canvas: HTMLCanvasElement, padding = 8): string {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas.toDataURL('image/png');
+  try {
+    const { width, height } = canvas;
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const alpha = data[(y * width + x) * 4 + 3];
+        if (alpha > 10) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      return canvas.toDataURL('image/png');
+    }
+
+    const cropX = Math.max(0, minX - padding);
+    const cropY = Math.max(0, minY - padding);
+    const cropW = Math.min(width - cropX, maxX - minX + 1 + padding * 2);
+    const cropH = Math.min(height - cropY, maxY - minY + 1 + padding * 2);
+
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, cropW);
+    out.height = Math.max(1, cropH);
+    const outCtx = out.getContext('2d');
+    if (!outCtx) return canvas.toDataURL('image/png');
+    outCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    return out.toDataURL('image/png');
+  } catch {
+    return canvas.toDataURL('image/png');
+  }
+}
+
 export function SignaturePad({ onSave, initialValue, label = 'Firma', onValidityChange }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -43,7 +91,15 @@ export function SignaturePad({ onSave, initialValue, label = 'Firma', onValidity
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const scale = Math.min(
+          (canvas.width - 16) / Math.max(1, img.width),
+          (canvas.height - 16) / Math.max(1, img.height)
+        );
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+        const drawX = (canvas.width - drawW) / 2;
+        const drawY = (canvas.height - drawH) / 2;
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
         const blank = isCanvasBlank(canvas);
         setHasSignature(!blank);
         onValidityChange?.(!blank);
@@ -136,7 +192,7 @@ export function SignaturePad({ onSave, initialValue, label = 'Firma', onValidity
     } else {
       setHasSignature(true);
       onValidityChange?.(true);
-      onSave(canvas.toDataURL('image/png'));
+      onSave(trimSignatureCanvas(canvas));
     }
   };
 

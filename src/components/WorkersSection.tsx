@@ -198,7 +198,7 @@ export function WorkersSection({ data, updateData }: WorkersSectionProps) {
   const rows = Array.from({ length: fixedRowCount }, (_, i) => data.workers[i] || null);
 
   return (
-    <div className="border border-slate-700 mb-2 bg-white shadow-2xs">
+    <div className="mb-2 bg-white shadow-2xs">
       {/* Helper Modal */}
       {activeHelperModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:hidden">
@@ -409,134 +409,148 @@ export function WorkersSection({ data, updateData }: WorkersSectionProps) {
       )}
 
       {/* Encabezado Sección estrictamente centrado */}
-      <div className="bg-brand-700 text-white font-bold py-1 px-2 text-[10.5px] sm:text-xs uppercase tracking-wider text-center relative border-b border-slate-700 flex items-center justify-center">
+      <div className="bg-brand-700 text-white font-bold py-1.5 px-2 text-[11px] uppercase tracking-wider text-center relative border border-black flex items-center justify-center leading-snug">
         <span>II. REGISTRO DE TRABAJADORES AUTORIZADOS</span>
       </div>
 
       {/* Tabla con anchos porcentuales estrictos y scroll horizontal en móviles */}
       <div className="w-full overflow-x-auto">
-        <table className="w-full border-collapse min-w-[560px] md:min-w-0" style={{ tableLayout: 'fixed', borderSpacing: 0 }}>
+        <table className="w-full border-collapse border-l border-r border-black min-w-[560px] md:min-w-0" style={{ tableLayout: 'fixed', borderSpacing: 0 }}>
           <thead>
-            <tr className="bg-brand-100/90 text-brand-950 text-center font-bold text-[9px] sm:text-[9.5px]">
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '5%' }}>No.</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '35%' }}>Nombre Completo</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '8%' }}>Tipo Doc</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '18%' }}>No. Documento</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '3.5%' }} title="Examen Médico Ocupacional">EM</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '3.5%' }} title="Seguridad Social Vigente">SS</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '3.5%' }} title="Certificado de Alturas Vigente">CA</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '3.5%' }} title="Persona Autorizada">PA</th>
-              <th className="border border-slate-700 p-1 text-center align-middle" style={{ width: '20%' }}>Firma del Trabajador</th>
+            <tr className="bg-brand-100/90 text-black text-center font-bold text-[10px]">
+              <th className="border-b border-l border-r border-black p-1.5 text-center align-middle" style={{ width: '5%' }}>No.</th>
+              <th className="border-b border-r border-black p-1.5 text-center align-middle" style={{ width: '34%' }}>Nombre Completo</th>
+              <th className="border-b border-r border-black p-1.5 text-center align-middle" style={{ width: '8%' }}>Tipo Doc</th>
+              <th className="border-b border-r border-black p-1.5 text-center align-middle" style={{ width: '17%' }}>No. Documento</th>
+              <th className="border-b border-r border-black p-1 text-center align-middle" style={{ width: '4%' }} title="Examen Médico Ocupacional">EM</th>
+              <th className="border-b border-r border-black p-1 text-center align-middle" style={{ width: '4%' }} title="Seguridad Social Vigente">SS</th>
+              <th className="border-b border-r border-black p-1 text-center align-middle" style={{ width: '4%' }} title="Certificado de Alturas Vigente">CA</th>
+              <th className="border-b border-r border-black p-1 text-center align-middle" style={{ width: '4%' }} title="Persona Autorizada">PA</th>
+              <th className="border-b border-r border-black p-1.5 text-center align-middle" style={{ width: '20%' }}>Firma del Trabajador</th>
             </tr>
           </thead>
-          <tbody className="text-[9px] sm:text-[9.5px]">
+          <tbody className="text-[10px]">
             {rows.map((worker, index) => {
               if (!worker) {
                 // Fila vacía para mantener exactamente la cuadrícula de 6 filas
                 return (
-                  <tr key={`empty-w-${index}`} className="h-[28px]">
-                    <td className="border border-slate-700 p-1 text-center font-bold bg-slate-50 text-slate-400">{index + 1}</td>
-                    <td className="border border-slate-700 p-1 pl-1 text-slate-300 italic font-light">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center text-slate-300">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center text-slate-300">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center bg-white">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center bg-white">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center bg-white">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center bg-white">&nbsp;</td>
-                    <td className="border border-slate-700 p-1 text-center bg-white">&nbsp;</td>
+                  <tr key={`empty-w-${index}`} className="min-h-[30px]" style={{ height: '30px' }}>
+                    <td className="border-b border-l border-r border-black p-1 text-center font-bold bg-slate-50 text-slate-400 align-middle">{index + 1}</td>
+                    <td className="border-b border-r border-black p-1 text-slate-300">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center text-slate-300">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center text-slate-300">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center bg-white">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center bg-white">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center bg-white">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center bg-white">&nbsp;</td>
+                    <td className="border-b border-r border-black p-1 text-center bg-white">&nbsp;</td>
                   </tr>
                 );
               }
 
               return (
-                <tr key={worker.id} className="h-[28px] hover:bg-slate-50/70 transition-colors">
-                  <td className="border border-slate-700 p-1 text-center font-bold bg-slate-50 text-slate-900 align-middle">
+                <tr key={worker.id} className="min-h-[30px] hover:bg-slate-50/70 transition-colors">
+                  <td className="border-b border-l border-r border-black p-1 text-center font-bold bg-slate-50 text-black align-middle">
                     {index + 1}
                   </td>
-                  <td 
-                    className="border border-slate-700 p-1 pl-2 align-middle cursor-pointer"
+                  <td
+                    className="border-b border-r border-black px-2 py-1 text-center align-middle cursor-pointer"
                     onClick={() => openWorkerModal(worker)}
                     title="Click para editar datos del trabajador"
-                    style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
                   >
-                    <div className="font-semibold text-slate-900 truncate">
+                    <div className="font-semibold text-black text-center leading-snug break-words">
                       {worker.name || <span className="text-slate-400 italic font-normal print:hidden">Click para registrar...</span>}
                     </div>
                   </td>
-                  <td 
-                    className="border border-slate-700 p-1 text-center font-bold text-slate-800 align-middle cursor-pointer"
+                  <td
+                    className="border-b border-r border-black p-1 text-center font-bold text-black align-middle cursor-pointer leading-snug"
                     onClick={() => openWorkerModal(worker)}
                   >
                     {worker.docType || 'CC'}
                   </td>
-                  <td 
-                    className="border border-slate-700 p-1 text-center tabular-nums font-bold text-slate-900 align-middle cursor-pointer"
+                  <td
+                    className="border-b border-r border-black px-1.5 py-1 text-center tabular-nums font-bold text-black align-middle cursor-pointer leading-snug break-words"
                     onClick={() => openWorkerModal(worker)}
-                    style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
                   >
                     {worker.docNumber || <span className="text-slate-400">---</span>}
                   </td>
 
                   {/* Casilla EM */}
-                  <td 
-                    className="border border-slate-700 p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
+                  <td
+                    className="border-b border-r border-black p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
                     onClick={() => handleWorkerChange(worker.id, 'em', !worker.em)}
                     title="Examen Médico Ocupacional"
                   >
-                    <div className={`w-4 h-4 mx-auto border border-slate-800 flex items-center justify-center text-center font-black text-[10px] leading-none select-none ${worker.em ? 'bg-slate-900 text-white' : 'bg-white'}`}>
-                      {worker.em ? 'X' : ''}
+                    <div className={`w-4 h-4 mx-auto border border-black flex items-center justify-center select-none ${worker.em ? 'bg-slate-900 text-white' : 'bg-white'}`}>
+                      {worker.em && (
+                        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                          <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                        </svg>
+                      )}
                     </div>
                   </td>
 
                   {/* Casilla SS */}
-                  <td 
-                    className="border border-slate-700 p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
+                  <td
+                    className="border-b border-r border-black p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
                     onClick={() => handleWorkerChange(worker.id, 'ss', !worker.ss)}
                     title="Seguridad Social Vigente"
                   >
-                    <div className={`w-4 h-4 mx-auto border border-slate-800 flex items-center justify-center text-center font-black text-[10px] leading-none select-none ${worker.ss ? 'bg-slate-900 text-white' : 'bg-white'}`}>
-                      {worker.ss ? 'X' : ''}
+                    <div className={`w-4 h-4 mx-auto border border-black flex items-center justify-center select-none ${worker.ss ? 'bg-slate-900 text-white' : 'bg-white'}`}>
+                      {worker.ss && (
+                        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                          <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                        </svg>
+                      )}
                     </div>
                   </td>
 
                   {/* Casilla CA */}
-                  <td 
-                    className="border border-slate-700 p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
+                  <td
+                    className="border-b border-r border-black p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
                     onClick={() => handleWorkerChange(worker.id, 'ca', !worker.ca)}
                     title="Certificado de Alturas Vigente"
                   >
-                    <div className={`w-4 h-4 mx-auto border border-slate-800 flex items-center justify-center text-center font-black text-[10px] leading-none select-none ${worker.ca ? 'bg-slate-900 text-white' : 'bg-white'}`}>
-                      {worker.ca ? 'X' : ''}
+                    <div className={`w-4 h-4 mx-auto border border-black flex items-center justify-center select-none ${worker.ca ? 'bg-slate-900 text-white' : 'bg-white'}`}>
+                      {worker.ca && (
+                        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                          <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                        </svg>
+                      )}
                     </div>
                   </td>
 
                   {/* Casilla PA */}
-                  <td 
-                    className="border border-slate-700 p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
+                  <td
+                    className="border-b border-r border-black p-0.5 text-center align-middle cursor-pointer hover:bg-slate-100"
                     onClick={() => handleWorkerChange(worker.id, 'pa', !worker.pa)}
                     title="Persona Autorizada"
                   >
-                    <div className={`w-4 h-4 mx-auto border border-slate-800 flex items-center justify-center text-center font-black text-[10px] leading-none select-none ${worker.pa ? 'bg-slate-900 text-white' : 'bg-white'}`}>
-                      {worker.pa ? 'X' : ''}
+                    <div className={`w-4 h-4 mx-auto border border-black flex items-center justify-center select-none ${worker.pa ? 'bg-slate-900 text-white' : 'bg-white'}`}>
+                      {worker.pa && (
+                        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                          <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                        </svg>
+                      )}
                     </div>
                   </td>
 
                   {/* Firma del Trabajador */}
-                  <td 
-                    className="border border-slate-700 p-0.5 text-center align-middle bg-white cursor-pointer"
+                  <td
+                    className="border-b border-r border-black p-0.5 text-center align-middle bg-white cursor-pointer"
                     onClick={() => openWorkerModal(worker)}
                     title="Click para firmar"
                   >
                     {worker.signature ? (
-                      <div className="flex items-center justify-center h-[26px]">
-                        <img 
-                          src={worker.signature} 
-                          alt="Firma" 
-                          style={{ maxHeight: '25px', maxWidth: '105px', objectFit: 'contain', margin: '0 auto', display: 'block' }} 
+                      <div className="flex items-center justify-center min-h-[28px]">
+                        <img
+                          src={worker.signature}
+                          alt="Firma"
+                          style={{ maxHeight: '26px', maxWidth: '110px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
                         />
                       </div>
                     ) : (
-                      <span className="text-[8px] text-slate-400 italic print:hidden">Firmar</span>
+                      <span className="text-[9px] text-slate-400 italic print:hidden">Firmar</span>
                     )}
                   </td>
                 </tr>
@@ -547,28 +561,28 @@ export function WorkersSection({ data, updateData }: WorkersSectionProps) {
       </div>
 
       {/* Botones de gestión rápida de trabajadores (ocultos en impresión) */}
-      <div className="p-1.5 print:hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 bg-gray-50 border-t border-black text-[10px]">
+      <div className="p-1.5 print:hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 bg-gray-50 border-l border-r border-b border-black text-[10px]">
         <span className="text-gray-500 font-medium">Haga clic sobre cualquier trabajador para editar datos, cambiarlo o firmar</span>
         <div className="flex flex-wrap gap-2">
           {data.workers.length > 1 && (
-            <button 
-              type="button" 
-              onClick={() => handleRemoveWorker(data.workers[data.workers.length - 1].id)} 
+            <button
+              type="button"
+              onClick={() => handleRemoveWorker(data.workers[data.workers.length - 1].id)}
               className="flex items-center text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded border border-red-200 font-semibold cursor-pointer"
             >
               <Trash2 size={11} className="mr-1" /> Quitar Fila
             </button>
           )}
-          <button 
-            type="button" 
-            onClick={handleAddWorkerFromDirectory} 
+          <button
+            type="button"
+            onClick={handleAddWorkerFromDirectory}
             className="flex items-center text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded border border-emerald-200 font-semibold cursor-pointer"
           >
             <Users size={11} className="mr-1" /> Desde Directorio
           </button>
-          <button 
-            type="button" 
-            onClick={handleAddWorker} 
+          <button
+            type="button"
+            onClick={handleAddWorker}
             className="flex items-center text-brand-800 hover:text-brand-950 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded border border-brand-200 font-semibold cursor-pointer"
           >
             <Plus size={11} className="mr-1" /> Añadir Trabajador
@@ -576,59 +590,67 @@ export function WorkersSection({ data, updateData }: WorkersSectionProps) {
         </div>
       </div>
 
-      {/* Ayudante de Seguridad (Fila Compacta con Bordes 100% Cerrados) */}
-      <div className="border-t border-slate-700 bg-white flex flex-col sm:flex-row text-[9px] sm:text-[9.5px] items-stretch">
-        <div className="flex border-b sm:border-b-0 border-r-0 sm:border-r border-slate-700">
-          <div className="w-36 sm:w-32 p-1 font-bold border-r border-slate-700 bg-brand-100/90 text-brand-950 uppercase flex items-center justify-center text-center shrink-0">
+      {/* Ayudante de Seguridad (Tabla estructurada con Bordes 100% Cerrados) */}
+      <div className="bg-white flex flex-col sm:flex-row print:flex-row text-[9.5px] sm:text-[10px] items-stretch border border-black avoid-break">
+        <div className="flex border-b sm:border-b-0 print:border-b-0 border-r-0 sm:border-r print:border-r border-black">
+          <div className="w-36 sm:w-32 px-1.5 py-1 font-bold border-r border-black bg-brand-100/90 text-black uppercase flex items-center justify-center text-center shrink-0 leading-snug">
             Ayudante de Seguridad
           </div>
-          <div className="flex-1 sm:w-24 flex text-[9px] font-bold">
-            <div 
-              className={`flex-1 flex items-center justify-center gap-1 p-0.5 cursor-pointer select-none border-r border-slate-700 ${data.safetyHelper.required === 'SI' ? 'bg-emerald-100 font-black text-emerald-950' : 'hover:bg-slate-50 text-slate-700'}`}
+          <div className="flex-1 sm:w-24 flex text-[9.5px] font-bold">
+            <div
+              className={`flex-1 flex items-center justify-center gap-1 p-1 cursor-pointer select-none border-r border-black ${data.safetyHelper.required === 'SI' ? 'bg-emerald-100 font-black text-emerald-950' : 'hover:bg-slate-50 text-slate-800'}`}
               onClick={() => handleHelperChange('required', 'SI')}
             >
               <span>SI</span>
-              <div className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${data.safetyHelper.required === 'SI' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
-                {data.safetyHelper.required === 'SI' ? 'X' : ''}
+              <div className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${data.safetyHelper.required === 'SI' ? 'bg-emerald-700 text-white' : 'bg-white'}`}>
+                {data.safetyHelper.required === 'SI' && (
+                  <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                    <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                  </svg>
+                )}
               </div>
             </div>
-            <div 
-              className={`flex-1 flex items-center justify-center gap-1 p-0.5 cursor-pointer select-none ${data.safetyHelper.required === 'N.A' ? 'bg-slate-200 font-black text-slate-950' : 'hover:bg-slate-50 text-slate-700'}`}
+            <div
+              className={`flex-1 flex items-center justify-center gap-1 p-1 cursor-pointer select-none ${data.safetyHelper.required === 'N.A' ? 'bg-slate-200 font-black text-black' : 'hover:bg-slate-50 text-slate-800'}`}
               onClick={() => handleHelperChange('required', 'N.A')}
             >
               <span>N.A</span>
-              <div className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${data.safetyHelper.required === 'N.A' ? 'bg-slate-700 text-white' : 'bg-white'}`}>
-                {data.safetyHelper.required === 'N.A' ? 'X' : ''}
+              <div className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${data.safetyHelper.required === 'N.A' ? 'bg-slate-700 text-white' : 'bg-white'}`}>
+                {data.safetyHelper.required === 'N.A' && (
+                  <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                    <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                  </svg>
+                )}
               </div>
             </div>
           </div>
         </div>
-        <div 
-          className={`flex-1 flex flex-col sm:flex-row items-stretch cursor-pointer ${data.safetyHelper.required !== 'N.A' ? 'hover:bg-slate-50' : 'opacity-60'}`}
+        <div
+          className={`flex-1 flex flex-col sm:flex-row print:flex-row items-stretch cursor-pointer ${data.safetyHelper.required !== 'N.A' ? 'hover:bg-slate-50' : 'opacity-60'}`}
           onClick={openHelperModal}
         >
-          <div className="flex flex-1 border-b sm:border-b-0 border-r-0 sm:border-r border-slate-700">
-            <div className="w-16 sm:w-16 p-1 font-semibold border-r border-slate-700 bg-brand-50/70 text-slate-800 flex items-center justify-center text-center shrink-0">
+          <div className="flex flex-1 border-b sm:border-b-0 print:border-b-0 border-r-0 sm:border-r print:border-r border-black">
+            <div className="w-16 px-1.5 py-1 font-semibold border-r border-black bg-brand-50/70 text-black flex items-center justify-center text-center shrink-0">
               Nombre
             </div>
-            <div className="flex-1 p-1 flex items-center truncate text-[9px] sm:text-[9.5px] font-semibold text-slate-900">
+            <div className="flex-1 px-2 py-1 flex items-center justify-center text-center text-[10px] font-semibold text-black leading-snug">
               {data.safetyHelper.name || (data.safetyHelper.required !== 'N.A' ? <span className="text-slate-400 italic font-normal print:hidden">Click para registrar...</span> : '---')}
             </div>
           </div>
           <div className="flex flex-1 items-stretch">
-            <div className="w-16 sm:w-16 p-1 font-semibold border-r border-slate-700 bg-brand-50/70 text-slate-800 flex items-center justify-center text-center shrink-0">
+            <div className="w-16 px-1.5 py-1 font-semibold border-r border-black bg-brand-50/70 text-black flex items-center justify-center text-center shrink-0">
               Firma
             </div>
-            <div className="flex-1 p-0.5 flex items-center justify-center min-h-[26px]">
+            <div className="flex-1 p-1 flex items-center justify-center min-h-[28px]">
               {data.safetyHelper.required !== 'N.A' && (
                 data.safetyHelper.signature ? (
-                  <img 
-                    src={data.safetyHelper.signature} 
-                    alt="Firma Ayudante" 
-                    style={{ maxHeight: '25px', maxWidth: '100px', objectFit: 'contain', margin: '0 auto', display: 'block' }} 
+                  <img
+                    src={data.safetyHelper.signature}
+                    alt="Firma Ayudante"
+                    style={{ maxHeight: '25px', maxWidth: '100px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
                   />
                 ) : (
-                  <span className="text-[8px] text-slate-400 italic print:hidden">Firmar</span>
+                  <span className="text-[9px] text-slate-400 italic print:hidden">Firmar</span>
                 )
               )}
             </div>
@@ -637,13 +659,13 @@ export function WorkersSection({ data, updateData }: WorkersSectionProps) {
       </div>
 
       {/* Descripción de la Actividad a Realizar */}
-      <div className="border-t border-slate-700 bg-white">
-        <div className="bg-brand-100/90 font-bold py-0.5 px-2 text-[9px] sm:text-[9.5px] border-b border-slate-700 uppercase text-brand-950 flex justify-between items-center">
+      <div className="bg-white border-l border-r border-b border-black avoid-break">
+        <div className="bg-brand-100/90 font-bold py-1 px-2 text-[10px] border-b border-black uppercase text-black flex justify-between items-center leading-snug">
           <span>Descripción de la Actividad a Realizar:</span>
-          <span className="text-[8px] font-normal text-slate-600">Herramientas y procedimiento seguro de trabajo</span>
+          <span className="text-[8.5px] font-normal text-slate-700">Herramientas y procedimiento seguro de trabajo</span>
         </div>
-        <textarea 
-          className="w-full min-h-[38px] p-1.5 px-2 text-[9px] sm:text-[9.5px] leading-tight outline-none resize-none bg-transparent placeholder-slate-400 text-slate-900 font-medium"
+        <textarea
+          className="w-full min-h-[42px] p-1.5 px-2 text-[10px] text-center leading-snug outline-none resize-none bg-transparent placeholder-slate-400 text-black font-medium"
           value={data.activityDescription}
           onChange={(e) => updateData({ activityDescription: e.target.value })}
           placeholder="Describa detalladamente la actividad, herramientas a utilizar y pasos de ejecución..."

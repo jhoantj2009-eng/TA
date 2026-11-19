@@ -33,7 +33,6 @@ const DEFAULT_FALL_PROTECTION = [
   'Línea de vida autorretráctil',
   'Freno o arrestador de caídas (troll)',
   'Red de seguridad para detención',
-  'Otros ¿cuál?',
 ];
 
 const DEFAULT_PERSONAL = [
@@ -43,7 +42,6 @@ const DEFAULT_PERSONAL = [
   'Gafas de seguridad con filtro UV',
   'Protección auditiva de inserción / copa',
   'Protección respiratoria / mascarilla',
-  'Otros ¿cuál?',
 ];
 
 const DEFAULT_COLLECTIVE = [
@@ -54,14 +52,7 @@ const DEFAULT_COLLECTIVE = [
   'Línea de advertencia perimetral',
   'Barandas fijas o temporales',
   'Ayudante de seguridad asignado',
-  'Otros ¿cuál?',
 ];
-
-const OTROS_FIELD_MAP = {
-  fallProtection: 'fallProtectionOtrosText',
-  personal: 'personalOtrosText',
-  collective: 'collectiveOtrosText',
-} as const;
 
 export interface ToolValidationError {
   index: number;
@@ -203,9 +194,7 @@ export function PPESection({ data, updateData }: PPESectionProps) {
     const current = { ...(data.ppe?.[category] || {}) };
     items.forEach((item) => {
       if (mode === 'all-si') {
-        if (item !== 'Otros ¿cuál?') {
-          current[item] = 'SI';
-        }
+        current[item] = 'SI';
       } else if (mode === 'remaining-na') {
         if (!current[item]) {
           current[item] = 'N/A';
@@ -219,25 +208,6 @@ export function PPESection({ data, updateData }: PPESectionProps) {
       ppe: {
         ...data.ppe,
         [category]: current,
-        ...(mode === 'clear' ? { [OTROS_FIELD_MAP[category]]: '' } : {}),
-      },
-    });
-  };
-
-  const handleOtrosTextChange = (
-    category: PPECategory,
-    value: string
-  ) => {
-    const otrosField = OTROS_FIELD_MAP[category];
-    const currentCat = { ...(data.ppe?.[category] || {}) };
-    if (value.trim() && currentCat['Otros ¿cuál?'] !== 'SI') {
-      currentCat['Otros ¿cuál?'] = 'SI';
-    }
-    updateData({
-      ppe: {
-        ...data.ppe,
-        [category]: currentCat,
-        [otrosField]: value,
       },
     });
   };
@@ -278,7 +248,7 @@ export function PPESection({ data, updateData }: PPESectionProps) {
     const customKeys = allKeys.filter(
       (k) => !defaultItems.includes(k) && k !== 'Otros ¿cuál?' && catObj[k] !== ''
     );
-    return [...defaultItems.filter((i) => i !== 'Otros ¿cuál?'), ...customKeys, 'Otros ¿cuál?'];
+    return [...defaultItems, ...customKeys];
   };
 
   const fallProtectionItems = getItems('fallProtection', DEFAULT_FALL_PROTECTION);
@@ -329,7 +299,6 @@ export function PPESection({ data, updateData }: PPESectionProps) {
     defaultList: string[],
     stats: { si: number; na: number; total: number; done: number }
   ) => {
-    const otrosField = OTROS_FIELD_MAP[category];
     const catMap = data.ppe?.[category] || {};
 
     return (
@@ -393,15 +362,12 @@ export function PPESection({ data, updateData }: PPESectionProps) {
         <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {items.map((item) => {
             const val = catMap[item] || '';
-            const isOtros = item === 'Otros ¿cuál?';
-            const isCustom = !defaultList.includes(item) && !isOtros;
+            const isCustom = !defaultList.includes(item);
 
             return (
               <div
                 key={item}
                 className={`rounded-lg border p-2 transition-all flex flex-col gap-1.5 ${
-                  isOtros ? 'sm:col-span-2' : ''
-                } ${
                   val === 'SI'
                     ? 'bg-emerald-50/80 border-emerald-400 shadow-2xs'
                     : val === 'N/A'
@@ -480,16 +446,6 @@ export function PPESection({ data, updateData }: PPESectionProps) {
                     )}
                   </div>
                 </div>
-
-                {isOtros && (
-                  <input
-                    type="text"
-                    value={data.ppe?.[otrosField] || ''}
-                    onChange={(e) => handleOtrosTextChange(category, e.target.value)}
-                    placeholder="Especifique otro elemento o medida (al escribir se marca SI automáticamente)..."
-                    className="w-full min-h-[36px] px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:border-brand-600 text-slate-900"
-                  />
-                )}
               </div>
             );
           })}
@@ -527,55 +483,51 @@ export function PPESection({ data, updateData }: PPESectionProps) {
   /* Fila compacta para el formato oficial imprimible / PDF */
   const PrintablePPERow: React.FC<{ category: PPECategory; item: string }> = ({ category, item }) => {
     const val = data.ppe?.[category]?.[item];
-    const isOtros = item === 'Otros ¿cuál?';
 
     return (
       <div
-        className={`flex border-b border-slate-300 text-[8.5px] sm:text-[9px] h-[19px] min-h-[19px] items-stretch ${
+        className={`flex border-b border-black text-[9px] min-h-[21px] items-stretch ${
           val === 'SI' ? 'bg-emerald-50/70' : val === 'N/A' ? 'bg-slate-100/70' : 'bg-white'
         }`}
       >
-        <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center overflow-hidden text-left">
-          {isOtros ? (
-            <div className="flex w-full items-center">
-              <span className={`mr-1 shrink-0 ${val === 'SI' ? 'font-bold text-emerald-950' : 'font-medium text-slate-800'}`}>
-                {item}
-              </span>
-              <span className={`flex-1 truncate text-[8px] ${val === 'SI' ? 'font-semibold text-emerald-950' : 'text-slate-700'}`}>
-                {data.ppe?.[OTROS_FIELD_MAP[category]] || ''}
-              </span>
-            </div>
-          ) : (
-            <span
-              className={`leading-none truncate ${
-                val === 'SI'
-                  ? 'font-bold text-emerald-950'
-                  : val === 'N/A'
-                  ? 'text-slate-400 line-through'
-                  : 'text-slate-800 font-medium'
-              }`}
-            >
-              {item}
-            </span>
-          )}
+        <div className="flex-1 px-1.5 py-[3px] border-r border-black flex items-center text-left min-w-0">
+          <span
+            className={`leading-snug break-words ${
+              val === 'SI'
+                ? 'font-bold text-emerald-950'
+                : val === 'N/A'
+                ? 'text-slate-600 font-medium'
+                : 'text-black font-medium'
+            }`}
+          >
+            {item}
+          </span>
         </div>
-        <div className="w-14 flex divide-x divide-slate-400 shrink-0 bg-white">
+        <div className="w-14 flex divide-x divide-black shrink-0 bg-white">
           <div className={`w-7 flex items-center justify-center ${val === 'SI' ? 'bg-emerald-100' : ''}`}>
             <div
-              className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${
+              className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${
                 val === 'SI' ? 'bg-emerald-700 text-white' : 'bg-white'
               }`}
             >
-              {val === 'SI' ? 'X' : ''}
+              {val === 'SI' && (
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           </div>
           <div className={`w-7 flex items-center justify-center ${val === 'N/A' ? 'bg-slate-200' : ''}`}>
             <div
-              className={`w-3.5 h-3.5 border border-slate-800 flex items-center justify-center text-center font-black text-[9px] leading-none ${
+              className={`w-3.5 h-3.5 border border-black flex items-center justify-center ${
                 val === 'N/A' ? 'bg-slate-700 text-white' : 'bg-white'
               }`}
             >
-              {val === 'N/A' ? 'X' : ''}
+              {val === 'N/A' && (
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 block" aria-hidden="true">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           </div>
         </div>
@@ -584,11 +536,11 @@ export function PPESection({ data, updateData }: PPESectionProps) {
   };
 
   return (
-    <div className="border border-slate-700 mb-1.5 relative bg-white shadow-2xs">
+    <div className="border border-black mb-1.5 relative bg-white shadow-2xs avoid-break">
       {/* Header institucional */}
-      <div className="bg-brand-700 text-white font-bold py-1 px-2 text-[10.5px] sm:text-xs uppercase tracking-wider text-center relative border-b border-slate-700 flex items-center justify-center">
+      <div className="bg-brand-700 text-white font-bold py-1.5 px-2 text-[11px] uppercase tracking-wider text-center relative border-b border-black flex items-center justify-center leading-snug">
         <span>IV. ELEMENTOS DE PROTECCIÓN Y MEDIDAS PREVENTIVAS</span>
-        <span className="hidden sm:inline-block absolute right-2 text-[8px] font-normal bg-brand-900 px-1.5 py-0.5 rounded text-brand-100 border border-brand-600">
+        <span className="hidden sm:inline-block absolute right-2 text-[8.5px] font-normal text-brand-100 leading-normal">
           Marque con una (X) [SI] o [N/A]
         </span>
       </div>
@@ -768,23 +720,24 @@ export function PPESection({ data, updateData }: PPESectionProps) {
                           <button
                             type="button"
                             onClick={() => stepToolQty(idx, -1)}
-                            className="w-9 h-9 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                            className="w-9 h-9 shrink-0 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
                             aria-label="Disminuir cantidad"
                           >
                             <Minus size={14} />
                           </button>
                           <input
                             type="text"
+                            inputMode="numeric"
                             value={tool.qty}
                             onChange={(e) => handleToolChange(idx, 'qty', e.target.value)}
                             placeholder="0"
-                            className="w-12 h-9 text-center text-xs font-bold text-brand-950 tabular-nums outline-none border-x border-slate-200"
+                            className="w-12 h-9 shrink-0 flex-none px-1 text-center text-xs font-bold text-brand-950 tabular-nums outline-none border-x border-slate-200 bg-transparent"
                             aria-label="Cantidad"
                           />
                           <button
                             type="button"
                             onClick={() => stepToolQty(idx, 1)}
-                            className="w-9 h-9 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                            className="w-9 h-9 shrink-0 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
                             aria-label="Aumentar cantidad"
                           >
                             <Plus size={14} />
@@ -822,113 +775,127 @@ export function PPESection({ data, updateData }: PPESectionProps) {
           MATRIZ OFICIAL COMPACTA PARA VISTA PREVIA, PDF E IMPRESIÓN
           ================================================================= */}
       <div className="hidden print:block">
-        <div className="grid grid-cols-3 divide-y-0 divide-x divide-slate-700">
+        <div className="grid grid-cols-3 divide-y-0 divide-x divide-black">
           {/* Columna 1: Protección contra caídas */}
           <div className="flex flex-col">
-            <div className="bg-brand-100/90 font-bold text-[8.5px] sm:text-[9.5px] text-center flex border-b border-slate-700 text-brand-950 h-[21px] items-stretch">
-              <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center justify-center text-center uppercase tracking-tight font-black">
+            <div className="bg-brand-100/90 font-bold text-[9px] sm:text-[9.5px] text-center flex border-b border-black text-black min-h-[24px] items-stretch">
+              <div className="flex-1 px-1.5 py-1 border-r border-black flex items-center justify-center text-center uppercase tracking-tight font-black leading-snug">
                 Protección Contra Caídas
               </div>
-              <div className="w-14 flex divide-x divide-slate-400 shrink-0">
+              <div className="w-14 flex divide-x divide-black shrink-0">
                 <div className="w-7 flex items-center justify-center text-center text-emerald-950 font-black">SI</div>
-                <div className="w-7 flex items-center justify-center text-center text-slate-700 font-black">N/A</div>
+                <div className="w-7 flex items-center justify-center text-center text-slate-800 font-black">N/A</div>
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1">
               {fallProtectionItems.map((item) => (
                 <PrintablePPERow key={item} category="fallProtection" item={item} />
               ))}
+              <div className="flex-1 bg-slate-50/40" />
             </div>
           </div>
 
           {/* Columna 2: EPP Personal y Herramientas Aseguradas */}
           <div className="flex flex-col">
-            <div className="bg-brand-100/90 font-bold text-[8.5px] sm:text-[9.5px] text-center flex border-b border-slate-700 text-brand-950 h-[21px] items-stretch">
-              <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center justify-center text-center uppercase tracking-tight font-black">
+            <div className="bg-brand-100/90 font-bold text-[9px] sm:text-[9.5px] text-center flex border-b border-black text-black min-h-[24px] items-stretch">
+              <div className="flex-1 px-1.5 py-1 border-r border-black flex items-center justify-center text-center uppercase tracking-tight font-black leading-snug">
                 Protección Personal (EPP)
               </div>
-              <div className="w-14 flex divide-x divide-slate-400 shrink-0">
+              <div className="w-14 flex divide-x divide-black shrink-0">
                 <div className="w-7 flex items-center justify-center text-center text-emerald-950 font-black">SI</div>
-                <div className="w-7 flex items-center justify-center text-center text-slate-700 font-black">N/A</div>
+                <div className="w-7 flex items-center justify-center text-center text-slate-800 font-black">N/A</div>
               </div>
             </div>
-            <div className="flex flex-col border-b border-slate-700">
+            <div className="flex flex-col">
               {personalItems.map((item) => (
                 <PrintablePPERow key={item} category="personal" item={item} />
               ))}
             </div>
 
-            {/* Sub-tabla Herramientas Aseguradas */}
+            {/* Sub-tabla Herramientas Aseguradas en tabla HTML con bordes cerrados */}
             <div className="flex-1 flex flex-col">
-              <div className="bg-brand-100/90 font-bold text-[8.5px] sm:text-[9.5px] text-center flex border-b border-slate-700 text-brand-950 h-[21px] items-stretch">
-                <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center justify-center relative text-center uppercase tracking-tight font-black">
-                  <span>Herramientas Aseguradas</span>
-                  <button
-                    type="button"
-                    onClick={addTool}
-                    className="print:hidden absolute right-1 px-1 py-0.5 rounded bg-brand-700 hover:bg-brand-800 text-white text-[7.5px] font-semibold normal-case tracking-normal flex items-center gap-0.5 cursor-pointer"
-                    title="Agregar herramienta"
-                  >
-                    + Herramienta
-                  </button>
-                </div>
-                <div className="w-12 flex items-center justify-center shrink-0 font-black text-brand-950">Cant.</div>
-              </div>
-              {displayedToolRows.map((tool, idx) => {
-                const hasToolEntry = idx < toolsList.length;
-                return (
-                  <div
-                    key={idx}
-                    className="flex border-b border-slate-300 text-[8.5px] sm:text-[9px] min-h-[19px] last:border-b-0 items-stretch"
-                  >
-                    <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center min-w-0 gap-1">
-                      <AutoResizeToolTextarea
-                        value={tool.name}
-                        onChange={(val) => handleToolChange(idx, 'name', val)}
-                        ariaLabel={`Herramienta asegurada ${idx + 1}`}
-                        className="text-[8.5px] sm:text-[9px] text-slate-800 font-medium"
-                      />
-                      {hasToolEntry && toolsList.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeTool(idx)}
-                          className="print:hidden p-0.5 text-slate-400 hover:text-red-600 transition-colors shrink-0 cursor-pointer"
-                          title="Quitar herramienta"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="w-12 shrink-0 flex items-center justify-center bg-white">
-                      <input
-                        type="text"
-                        value={tool.qty}
-                        onChange={(e) => handleToolChange(idx, 'qty', e.target.value)}
-                        className="w-full text-center font-mono text-[8.5px] sm:text-[9px] font-bold text-brand-950 bg-transparent border-0 outline-none tabular-nums py-[3px] px-0.5"
-                        aria-label={`Cantidad herramienta ${idx + 1}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              <table className="w-full border-collapse table-fixed text-[9px]" style={{ borderSpacing: 0 }}>
+                <colgroup>
+                  <col />
+                  <col style={{ width: '48px' }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-brand-100/90 font-bold text-[9px] sm:text-[9.5px] text-black">
+                    <th className="border-b border-r border-black px-1.5 py-1 text-center uppercase tracking-tight font-black leading-snug align-middle relative">
+                      <span>Herramientas</span>
+                      <button
+                        type="button"
+                        onClick={addTool}
+                        className="print:hidden absolute right-1 top-1/2 -translate-y-1/2 px-1 py-0.5 rounded bg-brand-700 hover:bg-brand-800 text-white text-[7.5px] font-semibold normal-case tracking-normal flex items-center gap-0.5 cursor-pointer"
+                        title="Agregar herramienta"
+                      >
+                        + Herramienta
+                      </button>
+                    </th>
+                    <th className="border-b border-black px-1 py-1 text-center font-black text-black align-middle">
+                      Cant.
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedToolRows.map((tool, idx) => {
+                    const hasToolEntry = idx < toolsList.length;
+                    return (
+                      <tr key={idx} className="bg-white" style={{ height: '22px' }}>
+                        <td className="border-b border-r border-black px-1.5 py-0.5 text-left align-middle bg-white">
+                          <div className="flex items-center justify-start gap-1 min-w-0">
+                            <AutoResizeToolTextarea
+                              value={tool.name}
+                              onChange={(val) => handleToolChange(idx, 'name', val)}
+                              ariaLabel={`Herramienta ${idx + 1}`}
+                              className="text-[9px] text-black text-left font-medium"
+                            />
+                            {hasToolEntry && toolsList.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeTool(idx)}
+                                className="print:hidden p-0.5 text-slate-400 hover:text-red-600 transition-colors shrink-0 cursor-pointer"
+                                title="Quitar herramienta"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="border-b border-black p-0 text-center align-middle bg-white">
+                          <input
+                            type="text"
+                            value={tool.qty}
+                            onChange={(e) => handleToolChange(idx, 'qty', e.target.value)}
+                            className="w-full text-center font-mono text-[9px] font-bold text-black bg-transparent border-0 outline-none tabular-nums py-[3px] px-0.5 leading-snug"
+                            aria-label={`Cantidad herramienta ${idx + 1}`}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="flex-1 bg-slate-50/40" />
             </div>
           </div>
 
           {/* Columna 3: Medidas Colectivas de Prevención */}
           <div className="flex flex-col">
-            <div className="bg-brand-100/90 font-bold text-[8.5px] sm:text-[9.5px] text-center flex border-b border-slate-700 text-brand-950 h-[21px] items-stretch">
-              <div className="flex-1 px-1.5 border-r border-slate-400 flex items-center justify-center text-center uppercase tracking-tight font-black">
+            <div className="bg-brand-100/90 font-bold text-[9px] sm:text-[9.5px] text-center flex border-b border-black text-black min-h-[24px] items-stretch">
+              <div className="flex-1 px-1.5 py-1 border-r border-black flex items-center justify-center text-center uppercase tracking-tight font-black leading-snug">
                 Medidas Colectivas Prevención
               </div>
-              <div className="w-14 flex divide-x divide-slate-400 shrink-0">
+              <div className="w-14 flex divide-x divide-black shrink-0">
                 <div className="w-7 flex items-center justify-center text-center text-emerald-950 font-black">SI</div>
-                <div className="w-7 flex items-center justify-center text-center text-slate-700 font-black">N/A</div>
+                <div className="w-7 flex items-center justify-center text-center text-slate-800 font-black">N/A</div>
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1">
               {collectiveItems.map((item) => (
                 <PrintablePPERow key={item} category="collective" item={item} />
               ))}
+              <div className="flex-1 bg-slate-50/40" />
             </div>
           </div>
         </div>

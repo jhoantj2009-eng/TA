@@ -123,7 +123,7 @@ export function DateSelector({
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label={ariaLabel}
-        className={`flex items-center justify-between gap-1.5 text-left outline-none cursor-pointer hover:bg-brand-50/60 transition-colors ${className}`}
+        className={`flex items-center justify-center gap-1.5 text-center outline-none cursor-pointer hover:bg-brand-50/60 transition-colors ${className}`}
       >
         <span className="truncate tabular-nums">
           {value ? (

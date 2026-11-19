@@ -1,11 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+const firebaseConfig = {
+  apiKey: 'AIzaSyAWCiAVI0pXRPHpfCmMDSgF9Amo3XgXyLU',
+  authDomain: 'ptas-7e4fb.firebaseapp.com',
+  projectId: 'ptas-7e4fb',
+  storageBucket: 'ptas-7e4fb.firebasestorage.app',
+  messagingSenderId: '204139082761',
+  appId: '1:204139082761:web:7ad5aac5d50c32ec87b4d8',
+  measurementId: 'G-RD8T6SHMTZ',
+};
 
 const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });

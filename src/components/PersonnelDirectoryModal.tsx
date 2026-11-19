@@ -10,7 +10,6 @@ import {
   PenTool,
   AlertCircle,
   Loader2,
-  CheckCircle2,
   LogOut,
   ArrowLeft,
 } from 'lucide-react';
@@ -22,6 +21,7 @@ import {
 import { useCloudSync } from './CloudSyncContext';
 import { SignaturePad } from './SignaturePad';
 import { isSignatureFilled } from '../utils/signatureValidation';
+import { FirebaseLoginForm } from './FirebaseLoginForm';
 
 interface PersonnelDirectoryModalProps {
   onNotify: (message: string) => void;
@@ -69,11 +69,8 @@ const EMPTY_FORM: FormState = {
 export function PersonnelDirectoryModal({ onNotify }: PersonnelDirectoryModalProps) {
   const {
     user,
-    signingIn,
-    authError,
     personnel,
     dataLoading,
-    signInWithGoogle,
     signOutGoogle,
     savePerson,
     deletePerson,
@@ -264,35 +261,14 @@ export function PersonnelDirectoryModal({ onNotify }: PersonnelDirectoryModalPro
 
         {/* Auth Gate */}
         {!user ? (
-          <div className="p-6 sm:p-10 flex flex-col items-center justify-center text-center gap-4 overflow-y-auto">
-            <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700">
-              <Users size={28} />
+          <div className="p-6 sm:p-8 flex flex-col items-center justify-center gap-4 overflow-y-auto">
+            <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shrink-0">
+              <Users size={24} />
             </div>
-            <div className="max-w-md">
-              <h3 className="text-base font-bold text-slate-900 mb-1.5">
-                Conecta tu cuenta para gestionar el directorio de personal
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Inicia sesión con Google para almacenar trabajadores, coordinadores y autorizadores junto con sus cédulas, requisitos y firmas digitales reutilizables.
-              </p>
-            </div>
-
-            {authError && (
-              <div className="max-w-md w-full p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 text-left">
-                <AlertCircle size={16} className="shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={signInWithGoogle}
-              disabled={signingIn}
-              className="min-h-[44px] px-5 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors cursor-pointer disabled:opacity-60"
-            >
-              {signingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              <span>{signingIn ? 'Conectando...' : 'Continuar con Google'}</span>
-            </button>
+            <FirebaseLoginForm
+              title="Conecta tu cuenta para gestionar el directorio de personal"
+              subtitle="Inicia sesión con tu correo y contraseña o con Google para almacenar trabajadores, coordinadores, autorizadores y firmas reutilizables."
+            />
           </div>
         ) : viewMode === 'form' ? (
           /* Create / Edit Person Form */
