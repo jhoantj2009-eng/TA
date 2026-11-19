@@ -12,20 +12,69 @@ interface HeaderProps {
   onNotify?: (message: string) => void;
 }
 
+function normalizeUploadedLogo(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen del logo'));
+    reader.onloadend = () => {
+      const rawDataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (!rawDataUrl) {
+        reject(new Error('Imagen vacía'));
+        return;
+      }
+
+      // Mantener SVG o imágenes livianas directamente si ya son compactas
+      if (file.type === 'image/svg+xml' || rawDataUrl.length <= 160_000) {
+        resolve(rawDataUrl);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxSide = 800;
+          const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+          const w = Math.max(1, Math.round((img.naturalWidth || maxSide) * scale));
+          const h = Math.max(1, Math.round((img.naturalHeight || maxSide) * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(rawDataUrl);
+            return;
+          }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, w, h);
+          const outputType = file.type === 'image/png' || file.type === 'image/webp' ? 'image/png' : 'image/jpeg';
+          const compressed = canvas.toDataURL(outputType, 0.9);
+          resolve(compressed.length < rawDataUrl.length ? compressed : rawDataUrl);
+        } catch {
+          resolve(rawDataUrl);
+        }
+      };
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function Header({ data, updateData, pageNum = 1, totalPages = 2, isUnified = false, onNotify }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const logoDataUrl = reader.result as string;
+      try {
+        const logoDataUrl = await normalizeUploadedLogo(file);
         updateData({ companyLogo: logoDataUrl });
         saveStoredHeaderConfig({ logo: logoDataUrl });
         onNotify?.("¡Logo cambiado y fijado con éxito! Se mostrará a quien abra el enlace compartido.");
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        onNotify?.("No se pudo procesar la imagen seleccionada. Intenta con un archivo PNG o JPG.");
+      }
     }
     if (e.target) {
       e.target.value = '';
@@ -53,12 +102,15 @@ export function Header({ data, updateData, pageNum = 1, totalPages = 2, isUnifie
                 {data.companyLogo ? (
                   <div
                     onClick={handleTriggerUpload}
-                    className="cursor-pointer relative group/img flex items-center justify-center p-1 rounded hover:bg-slate-50 transition-colors w-full h-full"
+                    className="cursor-pointer relative group/img flex items-center justify-center p-1 rounded hover:bg-slate-50 transition-colors w-full min-h-[84px]"
                     title="Haga clic para cambiar la imagen del logo"
                   >
                     <img
                       src={data.companyLogo}
                       alt="Logo Empresa"
+                      data-pdf-logo="true"
+                      loading="eager"
+                      decoding="sync"
                       className="max-h-20 max-w-full object-contain mx-auto block"
                     />
                     <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/img:opacity-100 flex items-center justify-center rounded transition-opacity print:hidden">

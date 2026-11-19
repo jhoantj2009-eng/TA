@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,6 +37,7 @@ jobs:
       - name: Build
         env:
           VITE_BASE_PATH: /TA/
+          VITE_BUILD_ID: ${{ github.sha }}-${{ github.run_number }}
         run: npm run build
 
       - name: Upload Artifacts

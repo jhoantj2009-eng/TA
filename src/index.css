@@ -30,13 +30,17 @@ th, td {
   page-break-inside: avoid !important;
 }
 
-/* Imágenes de firmas normalizadas */
+/* Imágenes de firmas y logo corporativo normalizadas */
 img[alt*="Firma"],
-img[alt*="firma"] {
+img[alt*="firma"],
+img[data-pdf-logo="true"],
+.header-official-table img {
   object-fit: contain !important;
   display: block !important;
   margin-left: auto !important;
   margin-right: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Modo Vista Previa */

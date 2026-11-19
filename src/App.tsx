@@ -23,6 +23,7 @@ import { PermitHistoryModal } from './components/PermitHistoryModal';
 import { PersonnelDirectoryModal } from './components/PersonnelDirectoryModal';
 import { AuthModal } from './components/AuthModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { APP_BEFORE_UPDATE_RELOAD_EVENT } from './hooks/useAutoAppUpdate';
 import { buildDuplicatedPermitData, getNextPermitNumber } from './services/firestoreStorage';
 
 function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
@@ -166,11 +167,224 @@ function clampOverflowingPageElements(pageElements: HTMLElement[], maxWidthPx: n
   });
 }
 
+function isMobileOrWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIOS =
+    /iPad|iPhone|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const isMobile =
+    /Mobile|Mobi|Tablet/i.test(ua) ||
+    (typeof window !== 'undefined' && window.innerWidth < 768);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua);
+  return isIOS || isAndroid || isMobile || isSafari;
+}
+
+async function waitForImageReady(img: HTMLImageElement, timeoutMs = 4000): Promise<void> {
+  if (!img.complete || img.naturalWidth === 0) {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      window.setTimeout(done, timeoutMs);
+      if (img.complete && img.naturalWidth > 0) {
+        done();
+      }
+    });
+  }
+
+  if (typeof img.decode === 'function') {
+    try {
+      await Promise.race([
+        img.decode(),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+      ]);
+    } catch {
+      // Algunos navegadores lanzan error en decode() para ciertos data URLs ya cargados
+    }
+  }
+}
+
+async function normalizeCloneLogosForPdf(clone: HTMLElement, fallbackLogoSrc: string): Promise<void> {
+  const logoImgs = Array.from(
+    clone.querySelectorAll<HTMLImageElement>('img[data-pdf-logo="true"], img[alt="Logo Empresa"]')
+  );
+
+  await Promise.all(
+    logoImgs.map(async (img) => {
+      img.setAttribute('data-pdf-logo', 'true');
+      img.loading = 'eager';
+      img.decoding = 'sync';
+
+      await waitForImageReady(img);
+
+      if ((!img.naturalWidth || !img.naturalHeight) && fallbackLogoSrc) {
+        img.src = fallbackLogoSrc;
+        await waitForImageReady(img);
+      }
+
+      if (!img.naturalWidth || !img.naturalHeight) return;
+
+      const isContinuityLogo = img.className.includes('max-h-16');
+      const maxDisplayH = isContinuityLogo ? 64 : 80;
+      const cellEl = img.closest('td');
+      const cellWidth = cellEl ? cellEl.getBoundingClientRect().width : 0;
+      const maxDisplayW = cellWidth > 40 ? Math.max(80, cellWidth - 18) : (isContinuityLogo ? 156 : 206);
+
+      const naturalRatio = img.naturalWidth / img.naturalHeight;
+      let displayW = maxDisplayW;
+      let displayH = displayW / naturalRatio;
+      if (displayH > maxDisplayH) {
+        displayH = maxDisplayH;
+        displayW = displayH * naturalRatio;
+      }
+
+      // Rasterizar a un PNG limpio y compacto en memoria (corrige EXIF móvil, perfiles ICC y tamaños gigantes)
+      try {
+        const rasterScale = 3;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.max(1, Math.round(displayW * rasterScale));
+        offscreen.height = Math.max(1, Math.round(displayH * rasterScale));
+        const offCtx = offscreen.getContext('2d');
+        if (offCtx) {
+          offCtx.imageSmoothingEnabled = true;
+          offCtx.imageSmoothingQuality = 'high';
+          offCtx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
+          const cleanPngUrl = offscreen.toDataURL('image/png');
+          img.src = cleanPngUrl;
+          await waitForImageReady(img);
+        }
+      } catch {
+        // Si el origen del logo restringe lectura de canvas, conservar src original con dimensiones explícitas
+      }
+
+      const finalW = Math.max(1, Math.round(displayW));
+      const finalH = Math.max(1, Math.round(displayH));
+      img.width = finalW;
+      img.height = finalH;
+      img.style.setProperty('width', `${finalW}px`, 'important');
+      img.style.setProperty('height', `${finalH}px`, 'important');
+      img.style.setProperty('max-width', '100%', 'important');
+      img.style.setProperty('max-height', 'none', 'important');
+      img.style.setProperty('object-fit', 'contain', 'important');
+      img.style.setProperty('display', 'block', 'important');
+      img.style.setProperty('margin', '0 auto', 'important');
+      img.style.setProperty('opacity', '1', 'important');
+      img.style.setProperty('visibility', 'visible', 'important');
+    })
+  );
+}
+
+function isCanvasRegionBlank(
+  canvas: HTMLCanvasElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): boolean {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  const rx = Math.max(0, Math.floor(x));
+  const ry = Math.max(0, Math.floor(y));
+  const rw = Math.min(canvas.width - rx, Math.ceil(w));
+  const rh = Math.min(canvas.height - ry, Math.ceil(h));
+  if (rw <= 2 || rh <= 2) return false;
+
+  try {
+    const { data } = ctx.getImageData(rx, ry, rw, rh);
+    let nonWhiteCount = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      if (a > 30 && (r < 245 || g < 245 || b < 245)) {
+        nonWhiteCount++;
+        if (nonWhiteCount > 12) return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function compositePageImagesOnCanvas(pageEl: HTMLElement, canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const pageRect = pageEl.getBoundingClientRect();
+  if (!pageRect.width || !pageRect.height) return;
+
+  const scaleX = canvas.width / pageRect.width;
+  const scaleY = canvas.height / pageRect.height;
+
+  const imgs = Array.from(pageEl.querySelectorAll<HTMLImageElement>('img'));
+
+  imgs.forEach((img) => {
+    if (!img.complete || !img.naturalWidth || !img.naturalHeight) return;
+
+    const computed = window.getComputedStyle(img);
+    if (computed.display === 'none' || computed.visibility === 'hidden' || computed.opacity === '0') {
+      return;
+    }
+
+    const imgRect = img.getBoundingClientRect();
+    if (imgRect.width < 2 || imgRect.height < 2) return;
+
+    const boxX = (imgRect.left - pageRect.left) * scaleX;
+    const boxY = (imgRect.top - pageRect.top) * scaleY;
+    const boxW = imgRect.width * scaleX;
+    const boxH = imgRect.height * scaleY;
+
+    if (boxW <= 1 || boxH <= 1) return;
+
+    const isLogo =
+      img.getAttribute('data-pdf-logo') === 'true' || img.alt === 'Logo Empresa';
+
+    // Para el logo siempre lo estampamos nítido en el canvas final; para otras imágenes (firmas) solo si html2canvas la omitió
+    if (!isLogo && !isCanvasRegionBlank(canvas, boxX, boxY, boxW, boxH)) {
+      return;
+    }
+
+    const natRatio = img.naturalWidth / img.naturalHeight;
+    let drawW = boxW;
+    let drawH = drawW / natRatio;
+    if (drawH > boxH) {
+      drawH = boxH;
+      drawW = drawH * natRatio;
+    }
+    const drawX = boxX + (boxW - drawW) / 2;
+    const drawY = boxY + (boxH - drawH) / 2;
+
+    try {
+      ctx.save();
+      if (isLogo) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(Math.floor(boxX), Math.floor(boxY), Math.ceil(boxW), Math.ceil(boxH));
+      }
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.restore();
+    } catch {
+      // Ignorar si la imagen externa no permite dibujo directo
+    }
+  });
+}
+
 async function capturePageCanvas(pageEl: HTMLElement, targetWidth: number): Promise<HTMLCanvasElement> {
   const baseOptions = {
     scale: 2,
     useCORS: true,
-    allowTaint: true,
+    allowTaint: false,
+    imageTimeout: 15000,
     logging: false,
     backgroundColor: '#ffffff',
     width: targetWidth,
@@ -181,19 +395,48 @@ async function capturePageCanvas(pageEl: HTMLElement, targetWidth: number): Prom
     scrollY: 0,
   };
 
-  try {
-    const foreignCanvas = await html2canvas(pageEl, {
-      ...baseOptions,
-      foreignObjectRendering: true,
-    });
-    if (!isCanvasBlank(foreignCanvas)) {
-      return foreignCanvas;
+  let capturedCanvas: HTMLCanvasElement;
+
+  // En celulares (iOS/Android) y Safari, foreignObjectRendering omite <img> embebidos; usar renderizador estándar primero
+  if (isMobileOrWebKit()) {
+    try {
+      capturedCanvas = await html2canvas(pageEl, {
+        ...baseOptions,
+        foreignObjectRendering: false,
+      });
+      if (isCanvasBlank(capturedCanvas)) {
+        capturedCanvas = await html2canvas(pageEl, {
+          ...baseOptions,
+          foreignObjectRendering: true,
+        });
+      }
+    } catch {
+      capturedCanvas = await html2canvas(pageEl, {
+        ...baseOptions,
+        foreignObjectRendering: true,
+      });
     }
-  } catch {
-    // Respaldo automático con el renderizador estándar si foreignObjectRendering falla
+  } else {
+    try {
+      const foreignCanvas = await html2canvas(pageEl, {
+        ...baseOptions,
+        foreignObjectRendering: true,
+      });
+      capturedCanvas = !isCanvasBlank(foreignCanvas)
+        ? foreignCanvas
+        : await html2canvas(pageEl, { ...baseOptions, foreignObjectRendering: false });
+    } catch {
+      capturedCanvas = await html2canvas(pageEl, {
+        ...baseOptions,
+        foreignObjectRendering: false,
+      });
+    }
   }
 
-  return html2canvas(pageEl, baseOptions);
+  // Garantizar siempre el estampado nítido del logo corporativo (y respaldo de firmas) en cualquier navegador móvil o escritorio
+  compositePageImagesOnCanvas(pageEl, capturedCanvas);
+
+  return capturedCanvas;
 }
 
 function ContinuityHeader({ data, pageNum, totalPages }: { data: PermitData; pageNum: number; totalPages: number }) {
@@ -214,6 +457,9 @@ function ContinuityHeader({ data, pageNum, totalPages }: { data: PermitData; pag
                   <img
                     src={data.companyLogo}
                     alt="Logo Empresa"
+                    data-pdf-logo="true"
+                    loading="eager"
+                    decoding="sync"
                     className="max-h-16 max-w-full object-contain mx-auto block"
                   />
                 ) : (
@@ -424,8 +670,8 @@ export default function App() {
       setTimeout(() => setIsAutoSaving(false), 800);
     }, AUTOSAVE_INTERVAL_MS);
 
-    // Guardado preventivo al recargar o cerrar pestaña
-    const handleBeforeUnload = () => {
+    // Guardado preventivo al recargar, cerrar pestaña o recibir actualización en vivo
+    const handleFlushDraft = () => {
       savePermitDataToStorage(latestDataRef.current);
     };
 
@@ -435,12 +681,16 @@ export default function App() {
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('beforeunload', handleFlushDraft);
+    window.addEventListener('pagehide', handleFlushDraft);
+    window.addEventListener(APP_BEFORE_UPDATE_RELOAD_EVENT, handleFlushDraft);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(intervalId);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('beforeunload', handleFlushDraft);
+      window.removeEventListener('pagehide', handleFlushDraft);
+      window.removeEventListener(APP_BEFORE_UPDATE_RELOAD_EVENT, handleFlushDraft);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
@@ -825,7 +1075,7 @@ export default function App() {
               <tr>
                 <td class="border border-black p-1.5 text-center align-middle bg-white">
                   <div class="flex items-center justify-center min-h-[84px]">
-                    ${data.companyLogo ? `<img src="${data.companyLogo}" alt="Logo Empresa" class="max-h-16 max-w-full object-contain mx-auto block" />` : `<div class="inline-block font-black text-brand-700 text-[11px] tracking-wider border border-brand-700 px-2.5 py-1 bg-brand-50 rounded-xs">DCM</div>`}
+                    ${data.companyLogo ? `<img src="${esc(data.companyLogo)}" alt="Logo Empresa" data-pdf-logo="true" loading="eager" decoding="sync" class="max-h-16 max-w-full object-contain mx-auto block" />` : `<div class="inline-block font-black text-brand-700 text-[11px] tracking-wider border border-brand-700 px-2.5 py-1 bg-brand-50 rounded-xs">DCM</div>`}
                   </div>
                 </td>
                 <td class="border border-black px-3 py-1.5 text-center align-middle bg-white">
@@ -906,18 +1156,12 @@ export default function App() {
         } catch {}
       }
 
-      // 2. Esperar que carguen logotipos, firmas y cualquier imagen embebida
-      const images = Array.from(clone.querySelectorAll('img'));
-      await Promise.all(
-        images.map(img => {
-          if (img.complete) return Promise.resolve();
-          return new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = resolve;
-            setTimeout(resolve, 500);
-          });
-        })
-      );
+      // 2. Esperar carga y decodificación real de logotipos, firmas y cualquier imagen embebida
+      const images = Array.from(clone.querySelectorAll<HTMLImageElement>('img'));
+      await Promise.all(images.map((img) => waitForImageReady(img, 4000)));
+
+      // 2.2 Normalizar logos corporativos (dimensiones explícitas + PNG decodificado para móviles)
+      await normalizeCloneLogosForPdf(clone, data.companyLogo || '');
 
       // 2.5 Recortar márgenes transparentes de firmas guardadas para que queden centradas en cada casilla
       const sigImgs = Array.from(

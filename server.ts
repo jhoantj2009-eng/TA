@@ -181,7 +181,7 @@ async function startServer() {
     }
   });
 
-  // Cabeceras estándar PWA para manifiesto y Service Worker (dev y producción, con o sin prefijo /TA/)
+  // Cabeceras estándar PWA para manifiesto, Service Worker y version.json (dev y producción, con o sin prefijo /TA/)
   app.use((req, res, next) => {
     if (req.path.endsWith('/manifest.webmanifest')) {
       res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
@@ -191,6 +191,11 @@ async function startServer() {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Service-Worker-Allowed', swScope);
+    } else if (req.path.endsWith('/version.json')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     }
     next();
   });
@@ -204,9 +209,21 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use('/TA', express.static(distPath));
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    const staticOptions = {
+      setHeaders: (res: express.Response, filePath: string) => {
+        if (
+          filePath.endsWith('index.html') ||
+          filePath.endsWith('sw.js') ||
+          filePath.endsWith('version.json')
+        ) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      },
+    };
+    app.use('/TA', express.static(distPath, staticOptions));
+    app.use(express.static(distPath, staticOptions));
+    app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = '__SW_CACHE_VERSION__';
 const SHELL_CACHE = `permiso-alturas-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE = `permiso-alturas-assets-${CACHE_VERSION}`;
 const FONTS_CACHE = `permiso-alturas-fonts-${CACHE_VERSION}`;
@@ -158,7 +158,11 @@ async function handleNavigationRequest(request, url) {
   const indexUrl = withBase('index.html');
 
   try {
-    const networkResponse = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
+    const freshRequest = new Request(request.url, {
+      cache: 'no-cache',
+      credentials: 'same-origin',
+    });
+    const networkResponse = await fetchWithTimeout(freshRequest, NETWORK_TIMEOUT_MS);
     if (isCacheableResponse(networkResponse)) {
       await shellCache.put(request, networkResponse.clone()).catch(() => undefined);
       if (url.pathname === BASE_PATH || url.pathname === indexUrl) {
@@ -257,11 +261,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, sw.js ni módulos Vite dev
+  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, sw.js, version.json ni módulos Vite dev
   if (
     url.origin !== self.location.origin ||
     url.pathname.startsWith('/api/') ||
     url.pathname.endsWith('/sw.js') ||
+    url.pathname.endsWith('/version.json') ||
     !url.pathname.startsWith(BASE_PATH) ||
     isViteDevRequest(url)
   ) {

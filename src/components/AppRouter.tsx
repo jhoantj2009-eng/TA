@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { useCloudSync } from './CloudSyncContext';
 import { LoginPage } from './LoginPage';
 import { OfflineIndicator } from './OfflineIndicator';
+import { useAutoAppUpdate } from '../hooks/useAutoAppUpdate';
 
 type RouteKey = 'login' | 'home';
 
@@ -31,6 +32,18 @@ function detectCurrentRoute(): RouteKey {
 export function AppRouter() {
   const { user, authReady } = useCloudSync();
   const [route, setRoute] = useState<RouteKey>(() => detectCurrentRoute());
+  const { isUpdating } = useAutoAppUpdate();
+
+  const updateNotice = isUpdating ? (
+    <div
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120] print:hidden bg-slate-900 text-white border border-brand-500/40 shadow-xl rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs font-semibold"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 size={14} className="animate-spin text-brand-400 shrink-0" />
+      <span>Actualizando a la última versión...</span>
+    </div>
+  ) : null;
 
   const navigateReplace = (targetRoute: RouteKey) => {
     if (typeof window !== 'undefined') {
@@ -118,6 +131,7 @@ export function AppRouter() {
       <>
         <LoginPage onAuthenticated={() => navigateReplace('home')} />
         <OfflineIndicator />
+        {updateNotice}
       </>
     );
   }
@@ -127,6 +141,7 @@ export function AppRouter() {
     <>
       <App />
       <OfflineIndicator />
+      {updateNotice}
     </>
   );
 }
