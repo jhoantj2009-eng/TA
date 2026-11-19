@@ -167,20 +167,6 @@ function clampOverflowingPageElements(pageElements: HTMLElement[], maxWidthPx: n
   });
 }
 
-function isMobileOrWebKit(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const isIOS =
-    /iPad|iPhone|iPod/i.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAndroid = /Android/i.test(ua);
-  const isMobile =
-    /Mobile|Mobi|Tablet/i.test(ua) ||
-    (typeof window !== 'undefined' && window.innerWidth < 768);
-  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua);
-  return isIOS || isAndroid || isMobile || isSafari;
-}
-
 async function waitForImageReady(img: HTMLImageElement, timeoutMs = 4000): Promise<void> {
   if (!img.complete || img.naturalWidth === 0) {
     await new Promise<void>((resolve) => {
@@ -315,7 +301,18 @@ function isCanvasRegionBlank(
   }
 }
 
-function compositePageImagesOnCanvas(pageEl: HTMLElement, canvas: HTMLCanvasElement): void {
+function isCanvasTainted(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d');
+  if (!ctx || canvas.width === 0 || canvas.height === 0) return true;
+  try {
+    ctx.getImageData(0, 0, 1, 1);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function compositeMissingImagesOnCanvas(pageEl: HTMLElement, canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -345,11 +342,8 @@ function compositePageImagesOnCanvas(pageEl: HTMLElement, canvas: HTMLCanvasElem
 
     if (boxW <= 1 || boxH <= 1) return;
 
-    const isLogo =
-      img.getAttribute('data-pdf-logo') === 'true' || img.alt === 'Logo Empresa';
-
-    // Para el logo siempre lo estampamos nítido en el canvas final; para otras imágenes (firmas) solo si html2canvas la omitió
-    if (!isLogo && !isCanvasRegionBlank(canvas, boxX, boxY, boxW, boxH)) {
+    // Solo estampar si el navegador móvil/foreignObject omitió esta imagen (evita cualquier duplicación)
+    if (!isCanvasRegionBlank(canvas, boxX, boxY, boxW, boxH)) {
       return;
     }
 
@@ -365,10 +359,22 @@ function compositePageImagesOnCanvas(pageEl: HTMLElement, canvas: HTMLCanvasElem
 
     try {
       ctx.save();
-      if (isLogo) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(Math.floor(boxX), Math.floor(boxY), Math.ceil(boxW), Math.ceil(boxH));
+      // Restablecer la matriz de transformación residual de html2canvas (scale/translate) a 1:1 en píxeles reales
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      // Recortar estrictamente al interior de la celda contenedora para que nunca sobresalga de los bordes
+      const td = img.closest('td');
+      if (td) {
+        const tdRect = td.getBoundingClientRect();
+        const clipX = (tdRect.left - pageRect.left + 2) * scaleX;
+        const clipY = (tdRect.top - pageRect.top + 2) * scaleY;
+        const clipW = Math.max(0, (tdRect.width - 4) * scaleX);
+        const clipH = Math.max(0, (tdRect.height - 4) * scaleY);
+        ctx.beginPath();
+        ctx.rect(clipX, clipY, clipW, clipH);
+        ctx.clip();
       }
+
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
@@ -395,46 +401,30 @@ async function capturePageCanvas(pageEl: HTMLElement, targetWidth: number): Prom
     scrollY: 0,
   };
 
-  let capturedCanvas: HTMLCanvasElement;
+  let capturedCanvas: HTMLCanvasElement | null = null;
 
-  // En celulares (iOS/Android) y Safari, foreignObjectRendering omite <img> embebidos; usar renderizador estándar primero
-  if (isMobileOrWebKit()) {
-    try {
-      capturedCanvas = await html2canvas(pageEl, {
-        ...baseOptions,
-        foreignObjectRendering: false,
-      });
-      if (isCanvasBlank(capturedCanvas)) {
-        capturedCanvas = await html2canvas(pageEl, {
-          ...baseOptions,
-          foreignObjectRendering: true,
-        });
-      }
-    } catch {
-      capturedCanvas = await html2canvas(pageEl, {
-        ...baseOptions,
-        foreignObjectRendering: true,
-      });
+  // Priorizar foreignObjectRendering para mantener bordes, alineación y bloques de texto idénticos a la Vista Previa
+  try {
+    const foreignCanvas = await html2canvas(pageEl, {
+      ...baseOptions,
+      foreignObjectRendering: true,
+    });
+    if (!isCanvasTainted(foreignCanvas) && !isCanvasBlank(foreignCanvas)) {
+      capturedCanvas = foreignCanvas;
     }
-  } else {
-    try {
-      const foreignCanvas = await html2canvas(pageEl, {
-        ...baseOptions,
-        foreignObjectRendering: true,
-      });
-      capturedCanvas = !isCanvasBlank(foreignCanvas)
-        ? foreignCanvas
-        : await html2canvas(pageEl, { ...baseOptions, foreignObjectRendering: false });
-    } catch {
-      capturedCanvas = await html2canvas(pageEl, {
-        ...baseOptions,
-        foreignObjectRendering: false,
-      });
-    }
+  } catch {
+    // Respaldo automático con el renderizador estándar si foreignObjectRendering falla
   }
 
-  // Garantizar siempre el estampado nítido del logo corporativo (y respaldo de firmas) en cualquier navegador móvil o escritorio
-  compositePageImagesOnCanvas(pageEl, capturedCanvas);
+  if (!capturedCanvas) {
+    capturedCanvas = await html2canvas(pageEl, {
+      ...baseOptions,
+      foreignObjectRendering: false,
+    });
+  }
+
+  // Si en algún celular foreignObjectRendering omitió el logo o una firma, estamparla en su celda exacta sin duplicar ni sobresalir
+  compositeMissingImagesOnCanvas(pageEl, capturedCanvas);
 
   return capturedCanvas;
 }

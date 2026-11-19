@@ -43,6 +43,11 @@ img[data-pdf-logo="true"],
   opacity: 1 !important;
 }
 
+/* Fix html2canvas FontMetrics + Tailwind Preflight: evita que el probe <img> 1x1 baje todo el texto 4-6px sobre los bordes */
+img[src^="data:image/gif;base64,R0lGODlhAQABAI"] {
+  display: inline !important;
+}
+
 /* Modo Vista Previa */
 .preview-mode {
   font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
