@@ -181,6 +181,19 @@ async function startServer() {
     }
   });
 
+  // Cabeceras estándar PWA para manifiesto y Service Worker (dev y producción)
+  app.use((req, res, next) => {
+    if (req.path === '/manifest.webmanifest') {
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+    } else if (req.path === '/sw.js') {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Service-Worker-Allowed', '/');
+    }
+    next();
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
-import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Smartphone, Building2, ChevronDown, ChevronUp, LogIn, LogOut } from 'lucide-react';
+import { Printer, RefreshCw, Eye, EyeOff, Download, FileText, Share2, Check, Save, CloudUpload, CheckCircle2, MoreHorizontal, BookmarkCheck, RotateCcw, Trash2, History, Users, Copy, BookmarkPlus, Building2, ChevronDown, ChevronUp, LogIn, LogOut } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PermitData, PermitHistoryRecord, PermitStatus, initialPermitData } from './types';
@@ -22,12 +22,8 @@ import { useCloudSync } from './components/CloudSyncContext';
 import { PermitHistoryModal } from './components/PermitHistoryModal';
 import { PersonnelDirectoryModal } from './components/PersonnelDirectoryModal';
 import { AuthModal } from './components/AuthModal';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { buildDuplicatedPermitData, getNextPermitNumber } from './services/firestoreStorage';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
 
 function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
   const ctx = canvas.getContext('2d');
@@ -400,35 +396,6 @@ export default function App() {
   // Formato oficial predeterminado de 2 páginas Carta para presentación formal y auditoría SG-SST
   const [layoutMode] = useState<'2-pages' | '3-pages' | 'unified'>('2-pages');
   const formRef = useRef<HTMLDivElement>(null);
-  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPromptEvent(event as BeforeInstallPromptEvent);
-    };
-    const handleAppInstalled = () => {
-      setInstallPromptEvent(null);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (!installPromptEvent) return;
-    try {
-      await installPromptEvent.prompt();
-      await installPromptEvent.userChoice;
-    } catch {
-      // Ignorar cancelación del navegador
-    } finally {
-      setInstallPromptEvent(null);
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1590,18 +1557,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Botón discreto de instalación PWA (solo visible si el navegador dispara beforeinstallprompt) */}
-            {installPromptEvent && (
-              <button
-                type="button"
-                onClick={handleInstallApp}
-                title="Instalar aplicación en este dispositivo"
-                className="print:hidden min-h-[38px] sm:min-h-[34px] px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-600 flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <Smartphone size={14} className="text-brand-300 shrink-0" />
-                <span>Instalar app</span>
-              </button>
-            )}
+            {/* Botón de instalación PWA (Android, Escritorio e instrucciones iOS Safari) */}
+            <PWAInstallButton variant="header" />
 
             {/* Acción principal clara: Descargar PDF */}
             <button

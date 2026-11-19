@@ -1,7 +1,8 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = `permiso-alturas-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE = `permiso-alturas-assets-${CACHE_VERSION}`;
-const ACTIVE_CACHES = [SHELL_CACHE, ASSETS_CACHE];
+const FONTS_CACHE = `permiso-alturas-fonts-${CACHE_VERSION}`;
+const ACTIVE_CACHES = [SHELL_CACHE, ASSETS_CACHE, FONTS_CACHE];
 
 const NETWORK_TIMEOUT_MS = 4000;
 
@@ -22,6 +23,26 @@ function isCacheableResponse(response) {
     response.ok &&
     response.status === 200 &&
     (response.type === 'basic' || response.type === 'cors')
+  );
+}
+
+function isViteDevRequest(url) {
+  return (
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/@fs/') ||
+    url.pathname.startsWith('/@id/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.searchParams.has('t') ||
+    url.searchParams.has('v')
+  );
+}
+
+function isGoogleFontOrigin(origin) {
+  return (
+    origin === 'https://fonts.googleapis.com' ||
+    origin === 'https://fonts.gstatic.com'
   );
 }
 
@@ -56,7 +77,6 @@ self.addEventListener('install', (event) => {
       const shellCache = await caches.open(SHELL_CACHE);
       const assetsCache = await caches.open(ASSETS_CACHE);
 
-      // 1. Pre-cachear la lista base del App Shell de forma tolerante a fallos individuales
       await Promise.allSettled(
         CORE_SHELL_URLS.map(async (url) => {
           const response = await fetch(new Request(url, { cache: 'reload' }));
@@ -66,7 +86,6 @@ self.addEventListener('install', (event) => {
         })
       );
 
-      // 2. Descubrir y pre-cachear los bundles principales CSS/JS generados por Vite en /index.html
       try {
         const htmlResponse = await fetch(new Request('/index.html', { cache: 'reload' }));
         if (isCacheableResponse(htmlResponse)) {
@@ -88,7 +107,7 @@ self.addEventListener('install', (event) => {
           );
         }
       } catch {
-        // Si falla la lectura del HTML durante install, los estáticos base ya quedaron respaldados
+        // Los archivos base del shell ya quedaron cacheados
       }
 
       await self.skipWaiting();
@@ -111,6 +130,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 async function handleNavigationRequest(request, url) {
   const shellCache = await caches.open(SHELL_CACHE);
 
@@ -124,7 +149,6 @@ async function handleNavigationRequest(request, url) {
       }
       return networkResponse;
     }
-    // Si el servidor responde con error >= 500, intentar servir desde caché
     if (networkResponse.status >= 500) {
       throw new Error(`Server error ${networkResponse.status}`);
     }
@@ -140,7 +164,7 @@ async function handleNavigationRequest(request, url) {
     if (cachedRoot) return cachedRoot;
 
     return new Response(
-      '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Sin conexión</title></head><body style="font-family:sans-serif;padding:2rem;text-align:center;"><h1>Sin conexión a internet</h1><p>No se encontró una versión en caché para cargar la aplicación.</p></body></html>',
+      '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sin conexión</title></head><body style="font-family:system-ui,sans-serif;padding:2rem;text-align:center;background:#f8fafc;color:#0f172a;"><h1>Sin conexión a internet</h1><p>No se encontró una versión en caché para cargar la aplicación. Conéctate nuevamente e intenta recargar.</p></body></html>',
       {
         status: 503,
         statusText: 'Service Unavailable',
@@ -150,7 +174,7 @@ async function handleNavigationRequest(request, url) {
   }
 }
 
-async function handleImmutableAssetRequest(request) {
+async function handleCacheFirst(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) {
     return cached;
@@ -159,8 +183,8 @@ async function handleImmutableAssetRequest(request) {
   try {
     const networkResponse = await fetch(request);
     if (isCacheableResponse(networkResponse)) {
-      const assetsCache = await caches.open(ASSETS_CACHE);
-      assetsCache.put(request, networkResponse.clone()).catch(() => undefined);
+      const targetCache = await caches.open(cacheName);
+      targetCache.put(request, networkResponse.clone()).catch(() => undefined);
     }
     return networkResponse;
   } catch {
@@ -209,12 +233,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // NUNCA cachear ni interceptar rutas /api/ ni peticiones de otros orígenes (Firebase, fuentes externas, etc.)
-  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
+  // Caché de fuentes de Google para soporte offline tipográfico
+  if (isGoogleFontOrigin(url.origin)) {
+    event.respondWith(handleCacheFirst(request, FONTS_CACHE));
     return;
   }
 
-  // 1. Navegación HTML: Network First con timeout y respaldo garantizado al App Shell en caché
+  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, ni módulos de Vite dev
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/sw.js' ||
+    isViteDevRequest(url)
+  ) {
+    return;
+  }
+
+  // 1. Navegación HTML SPA (/, /login, etc.): Network First con respaldo al App Shell
   if (
     request.mode === 'navigate' ||
     request.destination === 'document' ||
@@ -225,19 +260,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Recursos principales JS y CSS (incluidos bundles con hash en /assets/): Cache First
-  const isAssetBundle =
-    url.pathname.startsWith('/assets/') ||
-    request.destination === 'script' ||
-    request.destination === 'style' ||
-    request.destination === 'font' ||
-    /\.(?:js|mjs|css|woff2?)$/i.test(url.pathname);
+  // 2. Bundles con hash de producción en /assets/: Cache First
+  const isProductionBundle =
+    url.pathname.startsWith('/assets/') &&
+    /\.(?:js|mjs|css|woff2?|png|jpe?g|svg)$/i.test(url.pathname);
 
-  if (isAssetBundle) {
-    event.respondWith(handleImmutableAssetRequest(request));
+  if (isProductionBundle) {
+    event.respondWith(handleCacheFirst(request, ASSETS_CACHE));
     return;
   }
 
-  // 3. Otros estáticos del mismo origen (manifiesto, íconos, logos): Stale-While-Revalidate
+  // 3. Otros recursos estáticos del mismo origen (manifiesto, íconos, logos): Stale-While-Revalidate
   event.respondWith(handleStaleWhileRevalidate(event, request));
 });

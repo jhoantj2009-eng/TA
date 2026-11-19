@@ -1,15 +1,19 @@
 {
   "id": "/",
   "name": "Permiso de Trabajo en Alturas",
-  "short_name": "Permiso Alturas",
-  "description": "Permiso de trabajo en alturas según Resolución 4272 de 2021",
+  "short_name": "Alturas SST",
+  "description": "Aplicación instalable para diligenciar, firmar y exportar permisos de trabajo en alturas conforme a la Resolución 4272 de 2021.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "lang": "es",
+  "dir": "ltr",
   "theme_color": "#1a4c6e",
-  "background_color": "#ffffff",
+  "background_color": "#0f172a",
+  "categories": ["business", "productivity", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",

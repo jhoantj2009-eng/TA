@@ -4,6 +4,7 @@ import App from '../App';
 import { auth } from '../firebase';
 import { useCloudSync } from './CloudSyncContext';
 import { LoginPage } from './LoginPage';
+import { OfflineIndicator } from './OfflineIndicator';
 
 const LOGIN_ROUTE = '/login';
 const HOME_ROUTE = '/';
@@ -100,9 +101,19 @@ export function AppRouter() {
     if (!isVerified && typeof window !== 'undefined' && normalizePath(window.location.pathname) !== LOGIN_ROUTE) {
       window.history.replaceState(null, '', LOGIN_ROUTE);
     }
-    return <LoginPage onAuthenticated={() => navigateReplace(HOME_ROUTE)} />;
+    return (
+      <>
+        <LoginPage onAuthenticated={() => navigateReplace(HOME_ROUTE)} />
+        <OfflineIndicator />
+      </>
+    );
   }
 
   // 3. Credenciales validadas: habilitar el acceso completo al formulario y funciones de la aplicación
-  return <App />;
+  return (
+    <>
+      <App />
+      <OfflineIndicator />
+    </>
+  );
 }

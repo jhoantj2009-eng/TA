@@ -2,6 +2,7 @@ import React from 'react';
 import { Lock, ShieldCheck } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { FirebaseLoginForm } from './FirebaseLoginForm';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface LoginPageProps {
   onAuthenticated?: (user: User) => void;
@@ -40,10 +41,13 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
           />
         </div>
 
-        {/* Security Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-          <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
-          <span>Sesión protegida mediante Firebase Authentication</span>
+        {/* Security Footer & Optional PWA Install Action */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col gap-2.5">
+          <PWAInstallButton variant="login" />
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+            <span>Sesión protegida mediante Firebase Authentication</span>
+          </div>
         </div>
       </div>
     </div>
