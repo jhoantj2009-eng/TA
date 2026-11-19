@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PermitData, PermitHistoryRecord, PermitStatus, initialPermitData } from './types';
 import { getStoredHeaderConfig, fetchServerHeaderConfig, saveStoredHeaderConfig, resetServerHeaderConfig, DEFAULT_INVEASAS_LOGO, DEFAULT_DOC_CONFIG } from './defaultLogo';
-import { savePermitDataToStorage, loadAutoSavedPermitData, clearAutoSavedPermitData, getLastAutoSaveTimestamp, AUTOSAVE_INTERVAL_MS, formatAutoSaveTime, hasSignificantDraftData } from './utils/autoSave';
+import { savePermitDataToStorage, loadAutoSavedPermitData, clearAutoSavedPermitData, getLastAutoSaveTimestamp, AUTOSAVE_INTERVAL_MS, formatAutoSaveTime } from './utils/autoSave';
 import { lockApp } from './utils/security';
 import { auth } from './firebase';
 import { AccessLockScreen } from './components/AccessLockScreen';
@@ -344,16 +344,6 @@ export default function App() {
   });
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<Date | null>(() => getLastAutoSaveTimestamp());
   const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
-  const [restoredDraftNotice, setRestoredDraftNotice] = useState<{ visible: boolean; time: string | null }>(() => {
-    const autoSaved = loadAutoSavedPermitData();
-    if (autoSaved && autoSaved.data && hasSignificantDraftData(autoSaved.data)) {
-      return {
-        visible: true,
-        time: autoSaved.timestamp ? autoSaved.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
-      };
-    }
-    return { visible: false, time: null };
-  });
 
   // Ticker ligero cada 5 segundos para mantener actualizado el texto de tiempo relativo (ej. 'hace 15s')
   const [, setTimeTick] = useState(0);
@@ -544,7 +534,6 @@ export default function App() {
     setData(loaded);
     savePermitDataToStorage(loaded);
     setActivePermitMeta(record.id, record.status);
-    setRestoredDraftNotice({ visible: false, time: null });
     showLogoFeedback(`Permiso N° ${loaded.permitNumber || '001'} cargado desde el historial.`);
   };
 
@@ -560,7 +549,6 @@ export default function App() {
     setData(ready);
     savePermitDataToStorage(ready);
     setActivePermitMeta(newId, status);
-    setRestoredDraftNotice({ visible: false, time: null });
   };
 
   const handleDuplicateCurrentPermit = async () => {
@@ -582,7 +570,6 @@ export default function App() {
     setData(duplicated);
     savePermitDataToStorage(duplicated);
     setActivePermitMeta(null, null);
-    setRestoredDraftNotice({ visible: false, time: null });
     showLogoFeedback(`Permiso duplicado como N° ${nextNum} en el editor.`);
   };
 
@@ -1079,7 +1066,6 @@ export default function App() {
       });
       setActivePermitMeta(null, null);
       setLastAutoSaveTime(null);
-      setRestoredDraftNotice({ visible: false, time: null });
     }
   };
 
@@ -1609,38 +1595,6 @@ export default function App() {
           >
             <X size={15} />
           </button>
-        </div>
-      )}
-
-      {/* Banner de Borrador Restaurado automáticamente tras recarga */}
-      {restoredDraftNotice.visible && !isPreview && (
-        <div className="w-full bg-emerald-950/90 border-b border-emerald-700/80 text-emerald-100 px-3 sm:px-4 py-2 flex items-center justify-between text-xs shadow-xs print:hidden">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-            <span>
-              <strong>Borrador restaurado:</strong> Se han recuperado tus datos guardados automáticamente {restoredDraftNotice.time ? `(${restoredDraftNotice.time})` : ''}. No perdiste ningún avance tras la recarga.
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setRestoredDraftNotice({ visible: false, time: null })}
-              className="px-2.5 py-0.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-[11px] font-semibold transition-colors"
-            >
-              Entendido
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRestoredDraftNotice({ visible: false, time: null });
-                handleReset();
-              }}
-              className="text-[11px] text-emerald-300 hover:text-white underline ml-1"
-              title="Borrar borrador y volver al formulario vacío"
-            >
-              Descartar
-            </button>
-          </div>
         </div>
       )}
 
