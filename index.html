@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Permiso de Trabajo en Alturas</title>
 
-    <!-- PWA Manifest & Theme -->
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- PWA Manifest & Theme (usando %BASE_URL% para soportar /TA/ en GitHub Pages y / en raíz) -->
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
     <meta name="theme-color" content="#1a4c6e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Alturas SST" />
@@ -15,11 +15,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Alturas SST" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="%BASE_URL%icons/icon-192.png" />
 
     <!-- Iconos de navegador -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="%BASE_URL%icons/icon-512.png" />
 
     <!-- SEO & OpenGraph -->
     <meta name="description" content="Aplicación para gestionar y firmar permisos de trabajo en alturas (Resolución 4272 2021)." />

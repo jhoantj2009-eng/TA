@@ -6,70 +6,80 @@ import { useCloudSync } from './CloudSyncContext';
 import { LoginPage } from './LoginPage';
 import { OfflineIndicator } from './OfflineIndicator';
 
-const LOGIN_ROUTE = '/login';
-const HOME_ROUTE = '/';
+type RouteKey = 'login' | 'home';
 
-function normalizePath(pathname: string): string {
-  if (!pathname || pathname === '/') return HOME_ROUTE;
-  return pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+function getBasePath(): string {
+  const rawBase = import.meta.env.BASE_URL || '/';
+  return rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 }
 
-function getInitialSafePath(): string {
-  if (typeof window === 'undefined') return LOGIN_ROUTE;
-  const current = normalizePath(window.location.pathname);
-  // Verificación síncrona inmediata al cargar: si aún no hay usuario activo en Firebase,
-  // evitar exponer rutas protegidas en la barra de dirección hasta validar la sesión.
-  if (!auth.currentUser && current !== LOGIN_ROUTE) {
-    return current;
+function getRouteUrl(route: RouteKey): string {
+  const basePath = getBasePath();
+  return route === 'login' ? `${basePath}#/login` : basePath;
+}
+
+function detectCurrentRoute(): RouteKey {
+  if (typeof window === 'undefined') return 'login';
+  const hash = window.location.hash.replace(/^#/, '');
+  const pathname = window.location.pathname;
+  if (hash === '/login' || hash === 'login' || pathname.endsWith('/login')) {
+    return 'login';
   }
-  return current;
+  return 'home';
 }
 
 export function AppRouter() {
   const { user, authReady } = useCloudSync();
-  const [pathname, setPathname] = useState<string>(() => getInitialSafePath());
+  const [route, setRoute] = useState<RouteKey>(() => detectCurrentRoute());
 
-  const navigateReplace = (targetPath: string) => {
-    const normalized = normalizePath(targetPath);
-    if (typeof window !== 'undefined' && normalizePath(window.location.pathname) !== normalized) {
-      window.history.replaceState(null, '', normalized);
+  const navigateReplace = (targetRoute: RouteKey) => {
+    if (typeof window !== 'undefined') {
+      const targetUrl = getRouteUrl(targetRoute);
+      const currentUrl = `${window.location.pathname}${window.location.hash}`;
+      if (currentUrl !== targetUrl) {
+        window.history.replaceState(null, '', targetUrl);
+      }
     }
-    setPathname(normalized);
+    setRoute(targetRoute);
   };
 
   useEffect(() => {
-    const handlePopState = () => {
-      const nextPath = normalizePath(window.location.pathname);
-      if (!auth.currentUser && nextPath !== LOGIN_ROUTE) {
-        window.history.replaceState(null, '', LOGIN_ROUTE);
-        setPathname(LOGIN_ROUTE);
+    const syncRoute = () => {
+      const nextRoute = detectCurrentRoute();
+      if (!auth.currentUser && nextRoute !== 'login') {
+        navigateReplace('login');
         return;
       }
-      if (auth.currentUser && nextPath === LOGIN_ROUTE) {
-        window.history.replaceState(null, '', HOME_ROUTE);
-        setPathname(HOME_ROUTE);
+      if (auth.currentUser && nextRoute === 'login') {
+        navigateReplace('home');
         return;
       }
-      setPathname(nextPath);
+      setRoute(nextRoute);
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', syncRoute);
+    window.addEventListener('hashchange', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('hashchange', syncRoute);
+    };
   }, []);
 
-  // Sincronización inmediata antes de pintar (useLayoutEffect) para redirigir sin destellos
+  // Sincronización inmediata antes de pintar (useLayoutEffect) manteniendo siempre el pathname base
+  // (ej. /TA/) y usando hash (#/login) para evitar errores 404 en GitHub Pages e iOS Safari.
   useLayoutEffect(() => {
     if (!authReady) return;
 
     const isVerified = Boolean(user && auth.currentUser);
-    if (!isVerified) {
-      if (pathname !== LOGIN_ROUTE || normalizePath(window.location.pathname) !== LOGIN_ROUTE) {
-        navigateReplace(LOGIN_ROUTE);
-      }
-    } else if (pathname === LOGIN_ROUTE || normalizePath(window.location.pathname) === LOGIN_ROUTE) {
-      navigateReplace(HOME_ROUTE);
+    const targetRoute: RouteKey = isVerified ? 'home' : 'login';
+    const targetUrl = getRouteUrl(targetRoute);
+    const currentUrl =
+      typeof window !== 'undefined' ? `${window.location.pathname}${window.location.hash}` : targetUrl;
+
+    if (route !== targetRoute || currentUrl !== targetUrl) {
+      navigateReplace(targetRoute);
     }
-  }, [authReady, user, pathname]);
+  }, [authReady, user, route]);
 
   // 1. Mientras Firebase valida la sesión persistida, bloquear completamente el acceso a la aplicación
   if (!authReady) {
@@ -97,13 +107,16 @@ export function AppRouter() {
 
   // 2. Verificación síncrona estricta: sin usuario autenticado en Firebase, nunca montar <App />
   const isVerified = Boolean(user && auth.currentUser);
-  if (!isVerified || pathname === LOGIN_ROUTE) {
-    if (!isVerified && typeof window !== 'undefined' && normalizePath(window.location.pathname) !== LOGIN_ROUTE) {
-      window.history.replaceState(null, '', LOGIN_ROUTE);
+  if (!isVerified || route === 'login') {
+    if (!isVerified && typeof window !== 'undefined') {
+      const loginUrl = getRouteUrl('login');
+      if (`${window.location.pathname}${window.location.hash}` !== loginUrl) {
+        window.history.replaceState(null, '', loginUrl);
+      }
     }
     return (
       <>
-        <LoginPage onAuthenticated={() => navigateReplace(HOME_ROUTE)} />
+        <LoginPage onAuthenticated={() => navigateReplace('home')} />
         <OfflineIndicator />
       </>
     );

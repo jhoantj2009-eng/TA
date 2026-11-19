@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const SHELL_CACHE = `permiso-alturas-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE = `permiso-alturas-assets-${CACHE_VERSION}`;
 const FONTS_CACHE = `permiso-alturas-fonts-${CACHE_VERSION}`;
@@ -6,15 +6,23 @@ const ACTIVE_CACHES = [SHELL_CACHE, ASSETS_CACHE, FONTS_CACHE];
 
 const NETWORK_TIMEOUT_MS = 4000;
 
+// Resuelve automáticamente la ruta base donde vive sw.js (ej. "/TA/" en GitHub Pages o "/" en raíz)
+const BASE_PATH = new URL('./', self.location.href).pathname;
+
+function withBase(relativePath) {
+  const clean = relativePath.replace(/^\/+/, '');
+  return `${BASE_PATH}${clean}`;
+}
+
 const CORE_SHELL_URLS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable-512.png',
-  '/company_logo.jpg',
-  '/inveasas_logo.svg'
+  BASE_PATH,
+  withBase('index.html'),
+  withBase('manifest.webmanifest'),
+  withBase('icons/icon-192.png'),
+  withBase('icons/icon-512.png'),
+  withBase('icons/icon-maskable-512.png'),
+  withBase('company_logo.jpg'),
+  withBase('inveasas_logo.svg')
 ];
 
 function isCacheableResponse(response) {
@@ -27,13 +35,14 @@ function isCacheableResponse(response) {
 }
 
 function isViteDevRequest(url) {
+  const path = url.pathname;
   return (
-    url.pathname.startsWith('/@vite') ||
-    url.pathname.startsWith('/@react-refresh') ||
-    url.pathname.startsWith('/@fs/') ||
-    url.pathname.startsWith('/@id/') ||
-    url.pathname.startsWith('/src/') ||
-    url.pathname.startsWith('/node_modules/') ||
+    path.includes('/@vite') ||
+    path.includes('/@react-refresh') ||
+    path.includes('/@fs/') ||
+    path.includes('/@id/') ||
+    path.includes('/src/') ||
+    path.includes('/node_modules/') ||
     url.searchParams.has('t') ||
     url.searchParams.has('v')
   );
@@ -48,11 +57,18 @@ function isGoogleFontOrigin(origin) {
 
 function extractAssetUrlsFromHtml(htmlText) {
   const urls = new Set();
-  const assetRegex = /(?:src|href)=["'](\/assets\/[^"']+\.(?:js|mjs|css|woff2?|png|jpe?g|svg))["']/gi;
+  const assetRegex = /(?:src|href)=["']([^"']*\/assets\/[^"']+\.(?:js|mjs|css|woff2?|png|jpe?g|svg))["']/gi;
   let match;
   while ((match = assetRegex.exec(htmlText)) !== null) {
     if (match[1]) {
-      urls.add(match[1]);
+      try {
+        const resolved = new URL(match[1], self.location.href);
+        if (resolved.origin === self.location.origin) {
+          urls.add(resolved.pathname);
+        }
+      } catch {
+        // Ignorar URLs inválidas
+      }
     }
   }
   return Array.from(urls);
@@ -87,14 +103,15 @@ self.addEventListener('install', (event) => {
       );
 
       try {
-        const htmlResponse = await fetch(new Request('/index.html', { cache: 'reload' }));
+        const indexUrl = withBase('index.html');
+        const htmlResponse = await fetch(new Request(indexUrl, { cache: 'reload' }));
         if (isCacheableResponse(htmlResponse)) {
           const htmlForCache = htmlResponse.clone();
           const htmlForRoot = htmlResponse.clone();
           const htmlText = await htmlResponse.text();
 
-          await shellCache.put('/index.html', htmlForCache);
-          await shellCache.put('/', htmlForRoot);
+          await shellCache.put(indexUrl, htmlForCache);
+          await shellCache.put(BASE_PATH, htmlForRoot);
 
           const discoveredAssets = extractAssetUrlsFromHtml(htmlText);
           await Promise.allSettled(
@@ -138,29 +155,30 @@ self.addEventListener('message', (event) => {
 
 async function handleNavigationRequest(request, url) {
   const shellCache = await caches.open(SHELL_CACHE);
+  const indexUrl = withBase('index.html');
 
   try {
     const networkResponse = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
     if (isCacheableResponse(networkResponse)) {
       await shellCache.put(request, networkResponse.clone()).catch(() => undefined);
-      if (url.pathname === '/' || url.pathname === '/index.html') {
-        await shellCache.put('/index.html', networkResponse.clone()).catch(() => undefined);
-        await shellCache.put('/', networkResponse.clone()).catch(() => undefined);
+      if (url.pathname === BASE_PATH || url.pathname === indexUrl) {
+        await shellCache.put(indexUrl, networkResponse.clone()).catch(() => undefined);
+        await shellCache.put(BASE_PATH, networkResponse.clone()).catch(() => undefined);
       }
       return networkResponse;
     }
-    if (networkResponse.status >= 500) {
-      throw new Error(`Server error ${networkResponse.status}`);
+    if (networkResponse.status >= 400) {
+      throw new Error(`HTTP ${networkResponse.status}`);
     }
     return networkResponse;
   } catch {
     const cachedExact = await caches.match(request);
     if (cachedExact) return cachedExact;
 
-    const cachedIndex = await caches.match('/index.html', { ignoreSearch: true });
+    const cachedIndex = await caches.match(indexUrl, { ignoreSearch: true });
     if (cachedIndex) return cachedIndex;
 
-    const cachedRoot = await caches.match('/', { ignoreSearch: true });
+    const cachedRoot = await caches.match(BASE_PATH, { ignoreSearch: true });
     if (cachedRoot) return cachedRoot;
 
     return new Response(
@@ -239,30 +257,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, ni módulos de Vite dev
+  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, sw.js ni módulos Vite dev
   if (
     url.origin !== self.location.origin ||
     url.pathname.startsWith('/api/') ||
-    url.pathname === '/sw.js' ||
+    url.pathname.endsWith('/sw.js') ||
+    !url.pathname.startsWith(BASE_PATH) ||
     isViteDevRequest(url)
   ) {
     return;
   }
 
-  // 1. Navegación HTML SPA (/, /login, etc.): Network First con respaldo al App Shell
+  // 1. Navegación HTML SPA bajo BASE_PATH: Network First con respaldo al App Shell
   if (
     request.mode === 'navigate' ||
     request.destination === 'document' ||
-    url.pathname === '/' ||
-    url.pathname === '/index.html'
+    url.pathname === BASE_PATH ||
+    url.pathname === withBase('index.html')
   ) {
     event.respondWith(handleNavigationRequest(request, url));
     return;
   }
 
-  // 2. Bundles con hash de producción en /assets/: Cache First
+  // 2. Bundles con hash de producción en <BASE_PATH>assets/: Cache First
   const isProductionBundle =
-    url.pathname.startsWith('/assets/') &&
+    url.pathname.startsWith(withBase('assets/')) &&
     /\.(?:js|mjs|css|woff2?|png|jpe?g|svg)$/i.test(url.pathname);
 
   if (isProductionBundle) {
@@ -270,6 +289,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Otros recursos estáticos del mismo origen (manifiesto, íconos, logos): Stale-While-Revalidate
+  // 3. Otros recursos estáticos dentro de BASE_PATH (manifiesto, íconos, logos): Stale-While-Revalidate
   event.respondWith(handleStaleWhileRevalidate(event, request));
 });

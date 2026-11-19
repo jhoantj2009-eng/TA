@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirigiendo — Permiso de Trabajo en Alturas</title>
+    <script>
+      (function () {
+        var path = window.location.pathname || '/';
+        var target = '/TA/';
+        if (path.indexOf('/TA') !== 0) {
+          target = '/';
+        }
+        window.location.replace(target + '#/login');
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

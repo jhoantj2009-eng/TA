@@ -19,8 +19,11 @@ createRoot(document.getElementById('root')!).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register(`${normalizedBase}sw.js`, { scope: normalizedBase })
       .then((registration) => {
         registration.update().catch(() => undefined);
       })
