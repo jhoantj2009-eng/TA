@@ -409,3 +409,89 @@ export async function deletePersonnelRecord(personId: string): Promise<void> {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
+const COMPANY_TEMPLATES_COLLECTION = 'company_templates';
+
+export interface CompanyTemplateInput {
+  logo: string;
+  code: string;
+  version: string;
+  validity: string;
+  companyName: string;
+  companyNit: string;
+}
+
+export interface CompanyTemplateRecord extends CompanyTemplateInput {
+  ownerId: string;
+  updatedAt: Date | null;
+}
+
+/**
+ * Guarda la plantilla corporativa (logo, empresa, NIT y metadatos del encabezado) en Firestore
+ * para que cualquier celular o dispositivo sincronice automáticamente el logo e ícono PWA de la empresa.
+ */
+export async function saveCompanyTemplateToCloud(
+  ownerId: string,
+  input: CompanyTemplateInput
+): Promise<boolean> {
+  if (!ownerId) return false;
+  const cleanLogo =
+    typeof input.logo === 'string' && input.logo.length <= 180_000 ? input.logo : '';
+
+  const payload = {
+    ownerId: clampString(ownerId, 128),
+    logo: cleanLogo,
+    code: clampString((input.code || '').trim(), 40),
+    version: clampString((input.version || '').trim(), 20),
+    validity: clampString((input.validity || '').trim(), 40),
+    companyName: clampString((input.companyName || '').trim(), 160),
+    companyNit: clampString((input.companyNit || '').trim(), 40),
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, COMPANY_TEMPLATES_COLLECTION, ownerId), payload, { merge: true });
+    return true;
+  } catch (error) {
+    // No interrumpir el guardado local/servidor si el proyecto Firebase aún no habilita la colección company_templates
+    console.warn('[Firestore] No se pudo sincronizar company_templates en la nube:', error);
+    return false;
+  }
+}
+
+/**
+ * Escucha en tiempo real los cambios de la plantilla corporativa en Firestore.
+ */
+export function subscribeCompanyTemplate(
+  ownerId: string,
+  onData: (template: CompanyTemplateRecord | null) => void
+): () => void {
+  if (!ownerId) return () => undefined;
+
+  const docRef = doc(db, COMPANY_TEMPLATES_COLLECTION, ownerId);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (!snap.exists()) {
+        onData(null);
+        return;
+      }
+      const raw = snap.data();
+      onData({
+        ownerId: raw.ownerId || ownerId,
+        logo: typeof raw.logo === 'string' ? raw.logo : '',
+        code: typeof raw.code === 'string' ? raw.code : '',
+        version: typeof raw.version === 'string' ? raw.version : '',
+        validity: typeof raw.validity === 'string' ? raw.validity : '',
+        companyName: typeof raw.companyName === 'string' ? raw.companyName : '',
+        companyNit: typeof raw.companyNit === 'string' ? raw.companyNit : '',
+        updatedAt: toDateOrNull(raw.updatedAt),
+      });
+    },
+    (err) => {
+      console.warn('[Firestore] Lectura de company_templates omitida:', err.message);
+      onData(null);
+    }
+  );
+}
+

@@ -3,6 +3,11 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin, type ResolvedConfig } from 'vite';
+import {
+  decodeImageDataUrl,
+  generatePwaIconsFromBuffer,
+  resolveProjectCompanyLogoBuffer,
+} from './server/pwaIconGenerator';
 
 function normalizeBasePath(rawPath: string): string {
   const trimmed = rawPath.trim();
@@ -50,6 +55,29 @@ function resolveBuildId(): string {
   return `build-${Date.now()}`;
 }
 
+function stampIconQueryInHtml(html: string, iconHash: string): string {
+  return html
+    .replace(/(icons\/apple-touch-icon\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${iconHash}`)
+    .replace(/(icons\/icon-192\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${iconHash}`)
+    .replace(/(icons\/icon-512\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${iconHash}`)
+    .replace(/(manifest\.webmanifest)(?:\?icon=[^"']*)?/g, `$1?icon=${iconHash}`);
+}
+
+function readDevPersistedIconVersion(projectRoot: string): string | null {
+  try {
+    const pwaIconsPath = path.join(projectRoot, 'data', 'pwa-icons.json');
+    if (fs.existsSync(pwaIconsPath)) {
+      const parsed = JSON.parse(fs.readFileSync(pwaIconsPath, 'utf-8'));
+      if (parsed && typeof parsed.version === 'string' && parsed.version.trim()) {
+        return parsed.version.trim();
+      }
+    }
+  } catch {
+    // Ignorar errores de lectura en desarrollo
+  }
+  return null;
+}
+
 function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
   let resolvedConfig: ResolvedConfig | null = null;
 
@@ -57,6 +85,11 @@ function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
     name: 'pwa-auto-sync-version',
     configResolved(config) {
       resolvedConfig = config;
+    },
+    transformIndexHtml(html) {
+      if (!resolvedConfig || resolvedConfig.command !== 'serve') return html;
+      const devIconVersion = readDevPersistedIconVersion(resolvedConfig.root);
+      return devIconVersion ? stampIconQueryInHtml(html, devIconVersion) : html;
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -71,14 +104,56 @@ function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
         next();
       });
     },
-    closeBundle() {
+    async closeBundle() {
       if (!resolvedConfig || resolvedConfig.command !== 'build') return;
 
-      const outDir = path.resolve(resolvedConfig.root, resolvedConfig.build.outDir);
+      const projectRoot = resolvedConfig.root;
+      const outDir = path.resolve(projectRoot, resolvedConfig.build.outDir);
+      const outIconsDir = path.join(outDir, 'icons');
+      fs.mkdirSync(outIconsDir, { recursive: true });
 
-      // 1. Calcular hash de contenido de los archivos de logo/icono para invalidación automática de caché PWA
+      // 0. Regenerar los 4 iconos PWA oficiales desde el logo de plantilla corporativa
+      // Prioridad: data/pwa-icons.json -> data/header-config.json -> public/company_logo.*
+      let wroteGeneratedIcons = false;
+      const persistedIconsPath = path.join(projectRoot, 'data', 'pwa-icons.json');
+      if (fs.existsSync(persistedIconsPath)) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(persistedIconsPath, 'utf-8'));
+          const b180 = decodeImageDataUrl(parsed?.icon180 || '');
+          const b192 = decodeImageDataUrl(parsed?.icon192 || '');
+          const b512 = decodeImageDataUrl(parsed?.icon512 || '');
+          const bMask = decodeImageDataUrl(parsed?.iconMaskable512 || '');
+          if (b180 && b192 && b512 && bMask) {
+            fs.writeFileSync(path.join(outIconsDir, 'apple-touch-icon.png'), b180);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-192.png'), b192);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-512.png'), b512);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-maskable-512.png'), bMask);
+            wroteGeneratedIcons = true;
+          }
+        } catch {
+          // Continuar a generación desde logo
+        }
+      }
+
+      if (!wroteGeneratedIcons) {
+        const companyLogoBuf = resolveProjectCompanyLogoBuffer(projectRoot);
+        if (companyLogoBuf) {
+          try {
+            const generated = await generatePwaIconsFromBuffer(companyLogoBuf);
+            fs.writeFileSync(path.join(outIconsDir, 'apple-touch-icon.png'), generated.icon180);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-192.png'), generated.icon192);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-512.png'), generated.icon512);
+            fs.writeFileSync(path.join(outIconsDir, 'icon-maskable-512.png'), generated.iconMaskable512);
+          } catch (err) {
+            console.warn('[pwa-auto-sync-version] No se pudieron regenerar los iconos desde company_logo:', err);
+          }
+        }
+      }
+
+      // 1. Calcular hash de contenido de los iconos finales para invalidación automática de caché PWA
       const hash = crypto.createHash('sha256');
       const iconFiles = [
+        'icons/apple-touch-icon.png',
         'icons/icon-192.png',
         'icons/icon-512.png',
         'icons/icon-maskable-512.png',
@@ -117,8 +192,9 @@ function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
           const manifestJson = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
           if (Array.isArray(manifestJson.icons)) {
             manifestJson.icons = manifestJson.icons.map((icon: { src?: string }) => {
-              if (typeof icon.src === 'string' && !icon.src.includes('?')) {
-                return { ...icon, src: `${icon.src}?icon=${iconHash}` };
+              if (typeof icon.src === 'string') {
+                const cleanSrc = icon.src.split('?')[0];
+                return { ...icon, src: `${cleanSrc}?icon=${iconHash}` };
               }
               return icon;
             });
@@ -132,12 +208,8 @@ function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
       // 5. Estampar ?icon=<hash> en dist/index.html (apple-touch-icon, icons y manifest)
       const indexHtmlPath = path.join(outDir, 'index.html');
       if (fs.existsSync(indexHtmlPath)) {
-        let html = fs.readFileSync(indexHtmlPath, 'utf-8');
-        html = html
-          .replace(/(icons\/icon-192\.png)(?!\?)/g, `$1?icon=${iconHash}`)
-          .replace(/(icons\/icon-512\.png)(?!\?)/g, `$1?icon=${iconHash}`)
-          .replace(/(manifest\.webmanifest)(?!\?)/g, `$1?icon=${iconHash}`);
-        fs.writeFileSync(indexHtmlPath, html, 'utf-8');
+        const html = fs.readFileSync(indexHtmlPath, 'utf-8');
+        fs.writeFileSync(indexHtmlPath, stampIconQueryInHtml(html, iconHash), 'utf-8');
       }
     },
   };

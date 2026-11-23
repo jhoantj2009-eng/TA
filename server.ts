@@ -4,6 +4,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
+import { generatePwaIconDataUrlsFromLogo } from './server/pwaIconGenerator';
 
 dotenv.config();
 
@@ -152,9 +153,27 @@ async function startServer() {
     }
   });
 
-  app.post('/api/header-config', (req, res) => {
+  app.post('/api/header-config', async (req, res) => {
     try {
       const updated = savePersistedHeaderConfig(req.body);
+
+      // Si se actualizó el logo en la plantilla, regenerar automáticamente los 4 iconos PWA en el servidor
+      if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'logo')) {
+        const incomingLogo = typeof req.body.logo === 'string' ? req.body.logo.trim() : '';
+        if (!incomingLogo || incomingLogo === DEFAULT_INVEASAS_CONFIG.logo) {
+          clearPersistedPwaIcons();
+        } else {
+          try {
+            const generated = await generatePwaIconDataUrlsFromLogo(incomingLogo);
+            if (generated) {
+              savePersistedPwaIcons(generated);
+            }
+          } catch (iconErr) {
+            console.warn('No se pudieron generar iconos PWA en el servidor desde header-config:', iconErr);
+          }
+        }
+      }
+
       res.json(updated);
     } catch (_err) {
       res.status(500).json({ error: 'Error al guardar configuración de encabezado' });
@@ -360,7 +379,29 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    const distIndexPath = path.join(distPath, 'index.html');
+
+    const sendStampedIndexHtml = (res: express.Response) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      try {
+        let html = fs.readFileSync(distIndexPath, 'utf-8');
+        const customIcons = getPersistedPwaIcons();
+        if (customIcons?.version) {
+          html = html
+            .replace(/(icons\/apple-touch-icon\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${customIcons.version}`)
+            .replace(/(icons\/icon-192\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${customIcons.version}`)
+            .replace(/(icons\/icon-512\.png)(?:\?icon=[^"']*)?/g, `$1?icon=${customIcons.version}`)
+            .replace(/(manifest\.webmanifest)(?:\?icon=[^"']*)?/g, `$1?icon=${customIcons.version}`);
+        }
+        return res.send(html);
+      } catch {
+        return res.sendFile(distIndexPath);
+      }
+    };
+
     const staticOptions = {
+      index: false,
       setHeaders: (res: express.Response, filePath: string) => {
         if (
           filePath.endsWith('index.html') ||
@@ -374,8 +415,7 @@ async function startServer() {
     app.use('/TA', express.static(distPath, staticOptions));
     app.use(express.static(distPath, staticOptions));
     app.get('*', (_req, res) => {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.sendFile(path.join(distPath, 'index.html'));
+      sendStampedIndexHtml(res);
     });
   }
 

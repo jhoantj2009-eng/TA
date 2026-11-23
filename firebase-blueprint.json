@@ -189,6 +189,64 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "CompanyTemplate": {
+      "title": "CompanyTemplate",
+      "description": "Company branding template storing the active company logo and header metadata for cross-device PWA icon and form synchronization.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the authenticated user owning this company template.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "logo": {
+          "type": "string",
+          "description": "Optimized base64 data URL or empty string for the company logo.",
+          "maxLength": 180000
+        },
+        "code": {
+          "type": "string",
+          "description": "Official SG-SST format code.",
+          "maxLength": 40
+        },
+        "version": {
+          "type": "string",
+          "description": "Document version identifier.",
+          "maxLength": 20
+        },
+        "validity": {
+          "type": "string",
+          "description": "Document validity date or label.",
+          "maxLength": 40
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Company legal name.",
+          "maxLength": 160
+        },
+        "companyNit": {
+          "type": "string",
+          "description": "Company tax identification number (NIT).",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "logo",
+        "code",
+        "version",
+        "validity",
+        "companyName",
+        "companyNit",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -199,6 +257,10 @@
     "/personnel/{personId}": {
       "schema": { "$ref": "#/entities/PersonnelRecord" },
       "description": "Collection of company personnel directory records with reusable signatures."
+    },
+    "/company_templates/{ownerId}": {
+      "schema": { "$ref": "#/entities/CompanyTemplate" },
+      "description": "Per-account company template storing logo and header defaults synced across devices."
     }
   }
 }

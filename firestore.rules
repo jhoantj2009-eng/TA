@@ -171,6 +171,50 @@ service cloud.firestore {
       ]);
     }
 
+    function isValidCompanyTemplate(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'logo',
+          'code',
+          'version',
+          'validity',
+          'companyName',
+          'companyNit',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'logo',
+          'code',
+          'version',
+          'validity',
+          'companyName',
+          'companyNit',
+          'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.ownerId == request.auth.uid
+        && data.logo is string && data.logo.size() <= 180000
+        && data.code is string && data.code.size() <= 40
+        && data.version is string && data.version.size() <= 20
+        && data.validity is string && data.validity.size() <= 40
+        && data.companyName is string && data.companyName.size() <= 160
+        && data.companyNit is string && data.companyNit.size() <= 40
+        && data.updatedAt is timestamp;
+    }
+
+    function isCompanyTemplateUpdateAction() {
+      return incoming().diff(existing()).affectedKeys().hasOnly([
+        'logo',
+        'code',
+        'version',
+        'validity',
+        'companyName',
+        'companyNit',
+        'updatedAt'
+      ]);
+    }
+
     match /permits/{permitId} {
       allow get: if isSignedIn() && isValidId(permitId) && existing().ownerId == request.auth.uid;
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
@@ -207,6 +251,27 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && isPersonnelUpdateAction();
       allow delete: if isVerified() && isValidId(personId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /company_templates/{ownerId} {
+      allow get: if isSignedIn() && isValidId(ownerId) && ownerId == request.auth.uid;
+      allow create: if isVerified()
+        && isValidId(ownerId)
+        && ownerId == request.auth.uid
+        && isValidCompanyTemplate(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(ownerId)
+        && ownerId == request.auth.uid
+        && isValidCompanyTemplate(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && isCompanyTemplateUpdateAction();
+      allow delete: if isVerified()
+        && isValidId(ownerId)
+        && ownerId == request.auth.uid
+        && existing().ownerId == request.auth.uid;
     }
   }
 }

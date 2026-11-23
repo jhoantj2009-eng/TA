@@ -1,8 +1,10 @@
 import React, { ChangeEvent, useRef } from 'react';
 import { Upload, RefreshCw } from 'lucide-react';
 import { PermitData } from '../types';
-import { saveStoredHeaderConfig } from '../defaultLogo';
+import { saveStoredHeaderConfig, DEFAULT_DOC_CONFIG } from '../defaultLogo';
 import { syncDynamicPwaIcons } from '../utils/dynamicPwaIcon';
+import { normalizeUploadedLogo } from '../utils/logoImage';
+import { useCloudSync } from './CloudSyncContext';
 
 interface HeaderProps {
   data: PermitData;
@@ -13,57 +15,9 @@ interface HeaderProps {
   onNotify?: (message: string) => void;
 }
 
-function normalizeUploadedLogo(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('No se pudo leer la imagen del logo'));
-    reader.onloadend = () => {
-      const rawDataUrl = typeof reader.result === 'string' ? reader.result : '';
-      if (!rawDataUrl) {
-        reject(new Error('Imagen vacía'));
-        return;
-      }
-
-      // Mantener SVG o imágenes livianas directamente si ya son compactas
-      if (file.type === 'image/svg+xml' || rawDataUrl.length <= 160_000) {
-        resolve(rawDataUrl);
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const maxSide = 800;
-          const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
-          const w = Math.max(1, Math.round((img.naturalWidth || maxSide) * scale));
-          const h = Math.max(1, Math.round((img.naturalHeight || maxSide) * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(rawDataUrl);
-            return;
-          }
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, w, h);
-          const outputType = file.type === 'image/png' || file.type === 'image/webp' ? 'image/png' : 'image/jpeg';
-          const compressed = canvas.toDataURL(outputType, 0.9);
-          resolve(compressed.length < rawDataUrl.length ? compressed : rawDataUrl);
-        } catch {
-          resolve(rawDataUrl);
-        }
-      };
-      img.onerror = () => resolve(rawDataUrl);
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export function Header({ data, updateData, pageNum = 1, totalPages = 2, isUnified = false, onNotify }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { saveCompanyTemplate } = useCloudSync();
 
   const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -72,8 +26,16 @@ export function Header({ data, updateData, pageNum = 1, totalPages = 2, isUnifie
         const logoDataUrl = await normalizeUploadedLogo(file);
         updateData({ companyLogo: logoDataUrl });
         saveStoredHeaderConfig({ logo: logoDataUrl });
+        void saveCompanyTemplate({
+          logo: logoDataUrl,
+          code: data.documentCode || DEFAULT_DOC_CONFIG.code,
+          version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
+          validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
+          companyName: data.contractingCompany || data.companyName || DEFAULT_DOC_CONFIG.companyName,
+          companyNit: data.companyNit || '',
+        });
         void syncDynamicPwaIcons(logoDataUrl, { syncServer: true, force: true });
-        onNotify?.("¡Logo e ícono de la aplicación actualizados con éxito!");
+        onNotify?.("¡Logo e ícono de la aplicación actualizados y sincronizados!");
       } catch {
         onNotify?.("No se pudo procesar la imagen seleccionada. Intenta con un archivo PNG o JPG.");
       }

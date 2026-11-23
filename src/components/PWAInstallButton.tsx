@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Download, Share, PlusSquare, Smartphone, X } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import {
+  COMPANY_LOGO_UPDATED_EVENT,
+  CompanyLogoUpdateDetail,
+  getActiveCompanyLogoFromStorage,
+} from '../utils/dynamicPwaIcon';
 
 interface PWAInstallButtonProps {
   variant?: 'header' | 'login';
@@ -13,6 +18,23 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
 }) => {
   const { isInstallable, isInstalled, isIOS, installing, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [brand, setBrand] = useState(() => getActiveCompanyLogoFromStorage());
+
+  useEffect(() => {
+    const handleBrandUpdate = (event: Event) => {
+      const custom = event as CustomEvent<CompanyLogoUpdateDetail>;
+      const fallback = getActiveCompanyLogoFromStorage();
+      setBrand({
+        logo: custom.detail?.logo !== undefined ? custom.detail.logo : fallback.logo,
+        companyName: custom.detail?.companyName || fallback.companyName,
+      });
+    };
+
+    window.addEventListener(COMPANY_LOGO_UPDATED_EVENT, handleBrandUpdate);
+    return () => {
+      window.removeEventListener(COMPANY_LOGO_UPDATED_EVENT, handleBrandUpdate);
+    };
+  }, []);
 
   // Si la app ya se ejecuta instalada en modo standalone, ocultar el botón
   if (isInstalled) {
@@ -71,10 +93,20 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shrink-0">
-                    <Smartphone size={18} />
-                  </div>
+                <div className="flex items-center gap-3">
+                  {brand.logo ? (
+                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-sm p-1.5 flex items-center justify-center shrink-0 overflow-hidden">
+                      <img
+                        src={brand.logo}
+                        alt="Ícono de la aplicación"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shrink-0">
+                      <Smartphone size={18} />
+                    </div>
+                  )}
                   <div>
                     <h3
                       id="ios-pwa-guide-title"
@@ -82,7 +114,9 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                     >
                       Instalar en iPhone / iPad
                     </h3>
-                    <p className="text-[11px] text-slate-500">Acceso directo con apariencia nativa</p>
+                    <p className="text-[11px] text-slate-500">
+                      Se instalará con el logo de {brand.companyName || 'la empresa'}
+                    </p>
                   </div>
                 </div>
                 <button

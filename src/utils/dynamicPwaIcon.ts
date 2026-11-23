@@ -1,7 +1,9 @@
-import { DEFAULT_INVEASAS_LOGO } from '../defaultLogo';
+import { DEFAULT_INVEASAS_LOGO, fetchServerHeaderConfig } from '../defaultLogo';
 
 export const DYNAMIC_ICON_CACHE_NAME = 'permiso-alturas-dynamic-icons';
+export const COMPANY_LOGO_UPDATED_EVENT = 'company-logo-updated';
 const STORAGE_LOGO_KEY = 'sst_company_logo';
+const STORAGE_COMPANY_NAME_KEY = 'sst_company_name';
 
 export interface DynamicPwaIconSet {
   version: string;
@@ -11,8 +13,40 @@ export interface DynamicPwaIconSet {
   iconMaskable512: string;
 }
 
+export interface CompanyLogoUpdateDetail {
+  logo: string;
+  companyName?: string;
+  version?: string;
+}
+
 let lastAppliedVersion: string | null = null;
+let lastAppliedViaHttp = false;
+let lastKnownLogoSrc: string | null = null;
 let currentManifestBlobUrl: string | null = null;
+let swListenersAttached = false;
+
+export function notifyCompanyLogoUpdated(detail: CompanyLogoUpdateDetail): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent<CompanyLogoUpdateDetail>(COMPANY_LOGO_UPDATED_EVENT, { detail }));
+  } catch {
+    // Ignorar en entornos sin CustomEvent
+  }
+}
+
+export function getActiveCompanyLogoFromStorage(): { logo: string; companyName: string } {
+  if (typeof window === 'undefined') {
+    return { logo: DEFAULT_INVEASAS_LOGO, companyName: 'DCM Servicios & Consultoría' };
+  }
+  try {
+    const storedLogo = localStorage.getItem(STORAGE_LOGO_KEY);
+    const logo = storedLogo !== null ? storedLogo : DEFAULT_INVEASAS_LOGO;
+    const companyName = localStorage.getItem(STORAGE_COMPANY_NAME_KEY) || 'DCM Servicios & Consultoría';
+    return { logo, companyName };
+  } catch {
+    return { logo: DEFAULT_INVEASAS_LOGO, companyName: 'DCM Servicios & Consultoría' };
+  }
+}
 
 function getNormalizedBasePath(): string {
   const rawBase = import.meta.env.BASE_URL || '/';
@@ -64,7 +98,7 @@ function renderSquarePngIcon(
     throw new Error('Contexto 2D no disponible');
   }
 
-  // Fondo sólido (necesario para iOS Safari sin bordes negros y para zona segura de iconos maskable en Android)
+  // Fondo sólido (requerido para iOS Safari sin esquinas negras y zona segura maskable en Android)
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, size, size);
 
@@ -162,7 +196,6 @@ function replaceLinkTag(
   if (existingById) {
     existingById.remove();
   } else {
-    // Limpiar etiquetas equivalentes iniciales si no tenían ID
     const selector = extraAttrs.sizes
       ? `link[rel="${rel}"][sizes="${extraAttrs.sizes}"]`
       : `link[rel="${rel}"]`;
@@ -185,7 +218,7 @@ function updateDomIcons(icons: {
   icon192: string;
   icon512: string;
 }) {
-  // iOS Safari requiere PNG (recomendado 180x180) y recrear el nodo <link> refresca su caché al agregar a inicio
+  // iOS Safari requiere PNG 180x180 sobre URL HTTP mismo origen siempre que SW o servidor estén activos
   replaceLinkTag('pwa-apple-touch-icon', 'apple-touch-icon', icons.apple180, {
     sizes: '180x180',
   });
@@ -280,15 +313,17 @@ async function clearDynamicIconsFromCache(): Promise<void> {
   }
 }
 
-async function persistIconsToServer(iconSet: DynamicPwaIconSet): Promise<void> {
+async function persistIconsToServer(iconSet: DynamicPwaIconSet): Promise<boolean> {
   try {
-    await fetch('/api/pwa-icons', {
+    const res = await fetch('/api/pwa-icons', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(iconSet),
     });
+    return res.ok;
   } catch {
     // En despliegues estáticos (ej. GitHub Pages) no existe /api; funciona 100% vía Service Worker y DOM
+    return false;
   }
 }
 
@@ -303,16 +338,24 @@ async function resetIconsOnServer(): Promise<void> {
 export async function resetDynamicPwaIcons(options: { syncServer?: boolean } = {}): Promise<void> {
   if (typeof window === 'undefined') return;
   lastAppliedVersion = 'default';
+  lastAppliedViaHttp = true;
+  lastKnownLogoSrc = DEFAULT_INVEASAS_LOGO;
 
   const basePath = getNormalizedBasePath();
   await clearDynamicIconsFromCache();
 
   updateDomIcons({
-    apple180: `${basePath}icons/icon-192.png`,
+    apple180: `${basePath}icons/apple-touch-icon.png`,
     icon192: `${basePath}icons/icon-192.png`,
     icon512: `${basePath}icons/icon-512.png`,
   });
   updateDomManifestLink(`${basePath}manifest.webmanifest`);
+
+  notifyCompanyLogoUpdated({
+    logo: getActiveCompanyLogoFromStorage().logo,
+    companyName: getActiveCompanyLogoFromStorage().companyName,
+    version: 'default',
+  });
 
   if (options.syncServer) {
     await resetIconsOnServer();
@@ -335,7 +378,7 @@ export async function syncDynamicPwaIcons(
     return null;
   }
 
-  // Si coincide exactamente con el logo predeterminado original, restaurar los iconos estáticos base si no se fuerza
+  // Si coincide exactamente con el logo predeterminado original, usar los iconos estáticos compilados
   if (trimmed === DEFAULT_INVEASAS_LOGO && !options.force) {
     if (lastAppliedVersion !== 'default') {
       await resetDynamicPwaIcons({ syncServer: options.syncServer });
@@ -344,10 +387,13 @@ export async function syncDynamicPwaIcons(
   }
 
   const version = computeShortHash(trimmed);
+  const hasActiveSwController =
+    'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+
+  // Evitar regeneración redundante salvo cuando el SW recién tomó control y debemos pasar de data/blob a HTTP
   if (!options.force && lastAppliedVersion === version) {
-    if (options.syncServer) {
-      // Continuar para sincronizar con el servidor si se solicitó explícitamente
-    } else {
+    const needsHttpUpgrade = hasActiveSwController && !lastAppliedViaHttp;
+    if (!options.syncServer && !needsHttpUpgrade) {
       return null;
     }
   }
@@ -355,10 +401,7 @@ export async function syncDynamicPwaIcons(
   try {
     const img = await loadImage(trimmed);
 
-    // 1. Generar los 4 iconos PNG cuadrados reglamentarios
-    // - 180x180 para iOS Safari (apple-touch-icon)
-    // - 192x192 y 512x512 (purpose: "any") con 10% de margen visual
-    // - 512x512 maskable con 18% de margen de zona segura en todos los bordes para Android
+    // 1. Generar los 4 iconos PNG cuadrados reglamentarios con fondo blanco sólido
     const iconSet: DynamicPwaIconSet = {
       version,
       icon180: renderSquarePngIcon(img, 180, 0.1, '#ffffff'),
@@ -367,26 +410,35 @@ export async function syncDynamicPwaIcons(
       iconMaskable512: renderSquarePngIcon(img, 512, 0.18, '#ffffff'),
     };
 
-    lastAppliedVersion = version;
-
-    // 2. Actualizar inmediatamente <link rel="apple-touch-icon"> y favicons en <head> (iOS, Android y Escritorio)
-    updateDomIcons({
-      apple180: iconSet.icon180,
-      icon192: iconSet.icon192,
-      icon512: iconSet.icon512,
-    });
-
-    // 3. Almacenar los PNG y el manifest en Cache Storage para que el Service Worker los sirva vía HTTP mismo origen
+    // 2. Guardar los PNG y manifest en Cache Storage para intercepción por Service Worker
     const cachedOk = await storeDynamicIconsInCache(iconSet);
-    const hasActiveSwController =
-      'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
 
+    // 3. Sincronizar con servidor Node/Express si se solicitó (retorna true si el servidor los sirve vía HTTP)
+    const serverSynced = options.syncServer ? await persistIconsToServer(iconSet) : false;
+
+    const canServeViaHttp = (cachedOk && hasActiveSwController) || serverSynced;
     const basePath = getNormalizedBasePath();
-    if (cachedOk && hasActiveSwController) {
-      // URL HTTP mismo origen con cache-busting: máxima compatibilidad con instalación y actualización WebAPK en Chrome/Edge/Android
+
+    lastAppliedVersion = version;
+    lastAppliedViaHttp = canServeViaHttp;
+    lastKnownLogoSrc = trimmed;
+
+    if (canServeViaHttp) {
+      // URLs HTTP mismo origen con ?icon=<hash>: 100% compatible con iOS Safari (apple-touch-icon) y WebAPK Android/Desktop
+      updateDomIcons({
+        apple180: `${basePath}icons/apple-touch-icon.png?icon=${version}`,
+        icon192: `${basePath}icons/icon-192.png?icon=${version}`,
+        icon512: `${basePath}icons/icon-512.png?icon=${version}`,
+      });
       updateDomManifestLink(`${basePath}manifest.webmanifest?icon=${version}`);
     } else {
-      // Respaldo inmediato antes de que el SW tome control (primera visita o modo privado): Blob manifest con URLs absolutas e iconos PNG embebidos
+      // Respaldo instantáneo antes de que el SW tome control en la primera visita:
+      // usar PNG data URL para favicons y Blob manifest con URLs absolutas hasta que `controllerchange` actualice a HTTP
+      updateDomIcons({
+        apple180: iconSet.icon180,
+        icon192: iconSet.icon192,
+        icon512: iconSet.icon512,
+      });
       const blobManifest = buildManifestPayload({
         icon192: iconSet.icon192,
         icon512: iconSet.icon512,
@@ -399,10 +451,11 @@ export async function syncDynamicPwaIcons(
       updateDomManifestLink(blobUrl);
     }
 
-    // 4. Sincronizar con backend Node/Express si está disponible
-    if (options.syncServer) {
-      void persistIconsToServer(iconSet);
-    }
+    notifyCompanyLogoUpdated({
+      logo: trimmed,
+      companyName: getActiveCompanyLogoFromStorage().companyName,
+      version,
+    });
 
     return iconSet;
   } catch (error) {
@@ -412,31 +465,57 @@ export async function syncDynamicPwaIcons(
 }
 
 /**
- * Inicializa los iconos dinámicos al arranque de la app (incluyendo pantalla de login)
- * usando el logo personalizado persistido en localStorage, y re-sincroniza cuando el SW toma control.
+ * Inicializa los iconos dinámicos y el logotipo corporativo al arranque de la app
+ * (incluso en la pantalla de login de un celular nuevo) combinando:
+ * 1. Logo almacenado en localStorage
+ * 2. Plantilla persistida en el servidor (/api/header-config) si está disponible
+ * 3. Actualización automática a URLs HTTP en cuanto el Service Worker toma control (`controllerchange`)
  */
 export function initDynamicPwaIconsFromStorage(): void {
   if (typeof window === 'undefined') return;
 
-  const applyStoredLogo = () => {
+  const applyStoredLogo = (forceHttpUpgrade = false) => {
     try {
-      const storedLogo = localStorage.getItem(STORAGE_LOGO_KEY);
+      const storedLogo = localStorage.getItem(STORAGE_LOGO_KEY) || lastKnownLogoSrc;
       if (storedLogo && storedLogo !== DEFAULT_INVEASAS_LOGO) {
-        void syncDynamicPwaIcons(storedLogo, { force: true });
+        void syncDynamicPwaIcons(storedLogo, { force: forceHttpUpgrade });
       }
     } catch {
       // Ignorar si localStorage no está disponible
     }
   };
 
-  applyStoredLogo();
+  applyStoredLogo(true);
 
-  // Cuando el Service Worker termine de activarse en la primera visita, cambiar de Blob manifest a HTTP manifest interceptado por SW
-  if ('serviceWorker' in navigator) {
+  // En celulares/dispositivos nuevos abriendo la app por primera vez, consultar la plantilla del servidor antes del login
+  void fetchServerHeaderConfig()
+    .then((serverConfig) => {
+      if (!serverConfig) return;
+      if (serverConfig.logo && serverConfig.logo !== DEFAULT_INVEASAS_LOGO) {
+        void syncDynamicPwaIcons(serverConfig.logo, { force: true });
+      } else {
+        notifyCompanyLogoUpdated({
+          logo: serverConfig.logo !== undefined ? serverConfig.logo : DEFAULT_INVEASAS_LOGO,
+          companyName: serverConfig.companyName,
+        });
+      }
+    })
+    .catch(() => undefined);
+
+  if (!swListenersAttached && 'serviceWorker' in navigator) {
+    swListenersAttached = true;
+
+    // En la primera visita, el SW reclama control ~200ms después del arranque: cambiar inmediatamente de data/blob a HTTP
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (navigator.serviceWorker.controller) {
+        applyStoredLogo(true);
+      }
+    });
+
     navigator.serviceWorker.ready
       .then(() => {
-        if (navigator.serviceWorker.controller) {
-          applyStoredLogo();
+        if (navigator.serviceWorker.controller && !lastAppliedViaHttp) {
+          applyStoredLogo(true);
         }
       })
       .catch(() => undefined);

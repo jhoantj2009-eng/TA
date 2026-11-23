@@ -19,6 +19,7 @@ const CORE_SHELL_URLS = [
   BASE_PATH,
   withBase('index.html'),
   withBase('manifest.webmanifest'),
+  withBase('icons/apple-touch-icon.png'),
   withBase('icons/icon-192.png'),
   withBase('icons/icon-512.png'),
   withBase('icons/icon-maskable-512.png'),

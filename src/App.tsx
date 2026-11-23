@@ -24,7 +24,13 @@ import { PersonnelDirectoryModal } from './components/PersonnelDirectoryModal';
 import { AuthModal } from './components/AuthModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { APP_BEFORE_UPDATE_RELOAD_EVENT } from './hooks/useAutoAppUpdate';
-import { syncDynamicPwaIcons, resetDynamicPwaIcons } from './utils/dynamicPwaIcon';
+import {
+  syncDynamicPwaIcons,
+  resetDynamicPwaIcons,
+  COMPANY_LOGO_UPDATED_EVENT,
+  CompanyLogoUpdateDetail,
+} from './utils/dynamicPwaIcon';
+import { normalizeUploadedLogo } from './utils/logoImage';
 import { buildDuplicatedPermitData, getNextPermitNumber } from './services/firestoreStorage';
 
 function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
@@ -596,10 +602,12 @@ export default function App() {
     authReady,
     permits,
     personnel,
+    companyTemplate,
     activePermitId,
     activePermitStatus,
     setActivePermitMeta,
     savePermit,
+    saveCompanyTemplate,
     openHistory,
     openDirectory,
     openAuthModal,
@@ -722,6 +730,44 @@ export default function App() {
     });
   }, []);
 
+  // Sincronizar automáticamente la plantilla corporativa desde la nube (Firestore) en cualquier celular o dispositivo
+  useEffect(() => {
+    if (!companyTemplate) return;
+    setData(prev => ({
+      ...prev,
+      companyLogo: companyTemplate.logo ? companyTemplate.logo : prev.companyLogo,
+      documentCode: companyTemplate.code || prev.documentCode,
+      documentVersion: companyTemplate.version || prev.documentVersion,
+      documentValidity: companyTemplate.validity || prev.documentValidity,
+      companyName: companyTemplate.companyName || prev.companyName,
+      companyNit: companyTemplate.companyNit !== undefined ? companyTemplate.companyNit : prev.companyNit,
+      contractingCompany: companyTemplate.companyName || prev.contractingCompany,
+    }));
+  }, [companyTemplate]);
+
+  // Reflejar actualizaciones de logo hidratadas en segundo plano (ej. desde servidor o historial de permisos en dispositivo nuevo)
+  useEffect(() => {
+    const handleExternalLogoUpdate = (event: Event) => {
+      const custom = event as CustomEvent<CompanyLogoUpdateDetail>;
+      const nextLogo = custom.detail?.logo;
+      if (nextLogo && nextLogo !== DEFAULT_INVEASAS_LOGO) {
+        setData(prev => {
+          if (prev.companyLogo === nextLogo) return prev;
+          if (!prev.companyLogo || prev.companyLogo === DEFAULT_INVEASAS_LOGO) {
+            return {
+              ...prev,
+              companyLogo: nextLogo,
+              companyName: custom.detail?.companyName || prev.companyName,
+            };
+          }
+          return prev;
+        });
+      }
+    };
+    window.addEventListener(COMPANY_LOGO_UPDATED_EVENT, handleExternalLogoUpdate);
+    return () => window.removeEventListener(COMPANY_LOGO_UPDATED_EVENT, handleExternalLogoUpdate);
+  }, []);
+
   const updateData = (newData: Partial<PermitData>) => {
     setData(prev => ({ ...prev, ...newData }));
   };
@@ -819,18 +865,26 @@ export default function App() {
     void syncDynamicPwaIcons(data.companyLogo);
   }, [data.companyLogo]);
 
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const logoDataUrl = reader.result as string;
+      try {
+        const logoDataUrl = await normalizeUploadedLogo(file);
         updateData({ companyLogo: logoDataUrl });
         saveStoredHeaderConfig({ logo: logoDataUrl });
+        void saveCompanyTemplate({
+          logo: logoDataUrl,
+          code: data.documentCode || DEFAULT_DOC_CONFIG.code,
+          version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
+          validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
+          companyName: data.contractingCompany || data.companyName || DEFAULT_DOC_CONFIG.companyName,
+          companyNit: data.companyNit || '',
+        });
         void syncDynamicPwaIcons(logoDataUrl, { syncServer: true, force: true });
-        showLogoFeedback('¡Logo e ícono de la aplicación actualizados con éxito!');
-      };
-      reader.readAsDataURL(file);
+        showLogoFeedback('¡Logo e ícono de la aplicación actualizados y sincronizados!');
+      } catch {
+        showLogoFeedback('No se pudo procesar la imagen seleccionada. Intenta con un archivo PNG o JPG.', 'warning');
+      }
     }
     if (e.target) {
       e.target.value = '';
@@ -839,21 +893,33 @@ export default function App() {
 
   const handleSaveLogoAsTemplate = async () => {
     const activeLogo = data.companyLogo !== undefined ? data.companyLogo : DEFAULT_INVEASAS_LOGO;
-    await saveStoredHeaderConfig({
+    const templatePayload = {
       logo: activeLogo,
       code: data.documentCode || DEFAULT_DOC_CONFIG.code,
       version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
       validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
       companyName: data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría',
       companyNit: data.companyNit || '',
-    });
-    void syncDynamicPwaIcons(activeLogo, { syncServer: true, force: true });
-    showLogoFeedback('¡Encabezado, empresa, NIT, códigos, logo e ícono PWA guardados como plantilla predeterminada!');
+    };
+    await Promise.allSettled([
+      saveStoredHeaderConfig(templatePayload),
+      saveCompanyTemplate(templatePayload),
+      syncDynamicPwaIcons(activeLogo, { syncServer: true, force: true }),
+    ]);
+    showLogoFeedback('¡Plantilla, logo e ícono de la app guardados y sincronizados para todos los dispositivos!');
   };
 
   const handleRestoreDefaultLogo = () => {
     updateData({ companyLogo: DEFAULT_INVEASAS_LOGO });
     saveStoredHeaderConfig({ logo: DEFAULT_INVEASAS_LOGO });
+    void saveCompanyTemplate({
+      logo: DEFAULT_INVEASAS_LOGO,
+      code: data.documentCode || DEFAULT_DOC_CONFIG.code,
+      version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
+      validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
+      companyName: data.contractingCompany || data.companyName || DEFAULT_DOC_CONFIG.companyName,
+      companyNit: data.companyNit || '',
+    });
     void resetDynamicPwaIcons({ syncServer: true });
     showLogoFeedback('Logo oficial e ícono PWA restaurados.');
   };
@@ -861,37 +927,58 @@ export default function App() {
   const handleRemoveLogo = () => {
     updateData({ companyLogo: '' });
     saveStoredHeaderConfig({ logo: '' });
+    void saveCompanyTemplate({
+      logo: '',
+      code: data.documentCode || DEFAULT_DOC_CONFIG.code,
+      version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
+      validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
+      companyName: data.contractingCompany || data.companyName || DEFAULT_DOC_CONFIG.companyName,
+      companyNit: data.companyNit || '',
+    });
     void resetDynamicPwaIcons({ syncServer: true });
     showLogoFeedback('Logo removido de la plantilla.');
   };
 
   const handleRestoreFactoryDefaults = async () => {
     if (window.confirm(`¿Desea restaurar el encabezado a los valores predeterminados de la plantilla (Logo oficial DCM, Código ${DEFAULT_DOC_CONFIG.code}, Versión ${DEFAULT_DOC_CONFIG.version}, Vigencia ${DEFAULT_DOC_CONFIG.validity})?`)) {
-      updateData({
-        companyLogo: DEFAULT_INVEASAS_LOGO,
-        documentCode: DEFAULT_DOC_CONFIG.code,
-        documentVersion: DEFAULT_DOC_CONFIG.version,
-        documentValidity: DEFAULT_DOC_CONFIG.validity,
+      const factoryPayload = {
+        logo: DEFAULT_INVEASAS_LOGO,
+        code: DEFAULT_DOC_CONFIG.code,
+        version: DEFAULT_DOC_CONFIG.version,
+        validity: DEFAULT_DOC_CONFIG.validity,
         companyName: DEFAULT_DOC_CONFIG.companyName || 'DCM Servicios & Consultoría',
         companyNit: '',
-        contractingCompany: DEFAULT_DOC_CONFIG.companyName || 'DCM Servicios & Consultoría',
+      };
+      updateData({
+        companyLogo: factoryPayload.logo,
+        documentCode: factoryPayload.code,
+        documentVersion: factoryPayload.version,
+        documentValidity: factoryPayload.validity,
+        companyName: factoryPayload.companyName,
+        companyNit: '',
+        contractingCompany: factoryPayload.companyName,
       });
-      await resetServerHeaderConfig();
-      await resetDynamicPwaIcons({ syncServer: true });
+      await Promise.allSettled([
+        resetServerHeaderConfig(),
+        saveCompanyTemplate(factoryPayload),
+        resetDynamicPwaIcons({ syncServer: true }),
+      ]);
       showLogoFeedback('Encabezado e ícono PWA restaurados a la plantilla predeterminada.');
     }
   };
 
   const handleShare = async () => {
-    // Asegurar que el logo actual y metadatos queden guardados en el servidor antes de compartir
-    saveStoredHeaderConfig({
+    // Asegurar que el logo actual y metadatos queden guardados en el servidor y nube antes de compartir
+    const shareTemplatePayload = {
       logo: data.companyLogo !== undefined ? data.companyLogo : DEFAULT_INVEASAS_LOGO,
       code: data.documentCode || DEFAULT_DOC_CONFIG.code,
       version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
       validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
-      companyName: data.contractingCompany || data.companyName,
+      companyName: data.contractingCompany || data.companyName || DEFAULT_DOC_CONFIG.companyName,
       companyNit: data.companyNit || '',
-    });
+    };
+    saveStoredHeaderConfig(shareTemplatePayload);
+    void saveCompanyTemplate(shareTemplatePayload);
 
     const currentUrl = window.location.href.split('#')[0];
     if (navigator.share) {
@@ -1335,17 +1422,27 @@ export default function App() {
       {/* Top Controls Bar (Hidden in Print) */}
       <header className="w-full bg-slate-900 text-white py-2.5 px-3 sm:px-5 shadow-md sticky top-0 z-40 print:hidden border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
-          {/* Título e identidad */}
+          {/* Título e identidad con logotipo corporativo de la plantilla */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-brand-700/30 border border-brand-500/30 flex items-center justify-center shrink-0">
-              <FileText className="text-brand-300" size={18} />
-            </div>
+            {data.companyLogo ? (
+              <div className="w-10 h-10 rounded-lg bg-white p-1 border border-slate-700/80 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                <img
+                  src={data.companyLogo}
+                  alt={data.companyName || 'Logo Empresa'}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-9 h-9 rounded-lg bg-brand-700/30 border border-brand-500/30 flex items-center justify-center shrink-0">
+                <FileText className="text-brand-300" size={18} />
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-sm font-bold tracking-tight text-white truncate">
                 Permiso de Trabajo en Alturas
               </h1>
               <p className="text-[11px] text-slate-400 truncate">
-                Resolución 4272 de 2021 · Doc:{' '}
+                {data.companyName ? `${data.companyName} · ` : 'Resolución 4272 de 2021 · '}Doc:{' '}
                 <span className="font-mono text-slate-300">{data.documentCode || 'F-SST-045'}</span>
               </p>
             </div>

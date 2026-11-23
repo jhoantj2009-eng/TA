@@ -19,12 +19,18 @@ import {
 import {
   subscribePermits,
   subscribePersonnel,
+  subscribeCompanyTemplate,
+  saveCompanyTemplateToCloud,
   savePermitToHistory,
   deletePermitFromHistory,
   savePersonnelRecord,
   deletePersonnelRecord,
   PersonnelInput,
+  CompanyTemplateInput,
+  CompanyTemplateRecord,
 } from '../services/firestoreStorage';
+import { DEFAULT_INVEASAS_LOGO } from '../defaultLogo';
+import { syncDynamicPwaIcons, notifyCompanyLogoUpdated } from '../utils/dynamicPwaIcon';
 import { validatePPETools } from './PPESection';
 
 export type DirectoryPickCallback = (person: PersonnelRecord) => void;
@@ -91,6 +97,7 @@ interface CloudSyncContextValue {
   clearAuthError: () => void;
   permits: PermitHistoryRecord[];
   personnel: PersonnelRecord[];
+  companyTemplate: CompanyTemplateRecord | null;
   dataLoading: boolean;
   activePermitId: string | null;
   activePermitStatus: PermitStatus | null;
@@ -104,6 +111,7 @@ interface CloudSyncContextValue {
   deletePermit: (permitId: string) => Promise<void>;
   savePerson: (input: PersonnelInput, existingId?: string | null) => Promise<string | null>;
   deletePerson: (personId: string) => Promise<void>;
+  saveCompanyTemplate: (input: CompanyTemplateInput) => Promise<boolean>;
   // Global modal triggers so nested sections (WorkersSection, SignaturesSection) can open Directory seamlessly
   isDirectoryOpen: boolean;
   directoryOptions: DirectoryOpenOptions;
@@ -126,6 +134,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [permits, setPermits] = useState<PermitHistoryRecord[]>([]);
   const [personnel, setPersonnel] = useState<PersonnelRecord[]>([]);
+  const [companyTemplate, setCompanyTemplate] = useState<CompanyTemplateRecord | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [activePermitId, setActivePermitId] = useState<string | null>(null);
   const [activePermitStatus, setActivePermitStatus] = useState<PermitStatus | null>(null);
@@ -147,6 +156,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (!currentUser) {
         setPermits([]);
         setPersonnel([]);
+        setCompanyTemplate(null);
         setDataLoading(false);
         setActivePermitId(null);
         setActivePermitStatus(null);
@@ -209,11 +219,76 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    const unsubTemplate = subscribeCompanyTemplate(user.uid, (template) => {
+      setCompanyTemplate(template);
+      if (template && template.logo) {
+        try {
+          localStorage.setItem('sst_company_logo', template.logo);
+          if (template.code) localStorage.setItem('sst_doc_code', template.code);
+          if (template.version) localStorage.setItem('sst_doc_version', template.version);
+          if (template.validity) localStorage.setItem('sst_doc_validity', template.validity);
+          if (template.companyName) localStorage.setItem('sst_company_name', template.companyName);
+          if (template.companyNit !== undefined) {
+            localStorage.setItem('sst_company_nit', template.companyNit);
+          }
+        } catch {
+          // Ignorar errores de cuota localStorage
+        }
+        void syncDynamicPwaIcons(template.logo, { force: true });
+        notifyCompanyLogoUpdated({
+          logo: template.logo,
+          companyName: template.companyName,
+        });
+      }
+    });
+
     return () => {
       unsubPermits();
       unsubPersonnel();
+      unsubTemplate();
     };
   }, [authReady, user]);
+
+  // Respaldo automático multi-dispositivo: si company_templates no existe aún pero el usuario
+  // ya archivó permisos con el logo corporativo de su empresa, hidratarlo en dispositivos nuevos.
+  useEffect(() => {
+    if (!authReady || !user || companyTemplate?.logo || permits.length === 0) return;
+
+    try {
+      const localLogo = localStorage.getItem('sst_company_logo');
+      if (localLogo && localLogo !== DEFAULT_INVEASAS_LOGO) {
+        return;
+      }
+    } catch {
+      // Continuar
+    }
+
+    const recentWithLogo = permits.find(
+      (p) =>
+        p.permitData?.companyLogo &&
+        p.permitData.companyLogo.trim() !== '' &&
+        p.permitData.companyLogo !== DEFAULT_INVEASAS_LOGO
+    );
+
+    if (recentWithLogo?.permitData?.companyLogo) {
+      const inferredLogo = recentWithLogo.permitData.companyLogo;
+      const inferredCompany =
+        recentWithLogo.permitData.companyName || recentWithLogo.contractingCompany || '';
+      try {
+        localStorage.setItem('sst_company_logo', inferredLogo);
+        if (inferredCompany) {
+          localStorage.setItem('sst_company_name', inferredCompany);
+        }
+      } catch {
+        // Ignorar
+      }
+      void syncDynamicPwaIcons(inferredLogo, { force: true });
+      notifyCompanyLogoUpdated({
+        logo: inferredLogo,
+        companyName: inferredCompany || undefined,
+      });
+    }
+  }, [authReady, user, companyTemplate, permits]);
 
   const signInWithGoogle = useCallback(async () => {
     setSigningIn(true);
@@ -300,6 +375,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setPermits([]);
       setPersonnel([]);
+      setCompanyTemplate(null);
       setDataLoading(false);
       setAuthError(null);
       setActivePermitId(null);
@@ -364,6 +440,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     [user]
   );
 
+  const saveCompanyTemplate = useCallback(
+    async (input: CompanyTemplateInput) => {
+      if (!user) return false;
+      return await saveCompanyTemplateToCloud(user.uid, input);
+    },
+    [user]
+  );
+
   const openDirectory = useCallback((options?: DirectoryOpenOptions) => {
     setDirectoryOptions(options || {});
     setIsDirectoryOpen(true);
@@ -395,6 +479,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         clearAuthError,
         permits,
         personnel,
+        companyTemplate,
         dataLoading,
         activePermitId,
         activePermitStatus,
@@ -408,6 +493,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         deletePermit,
         savePerson,
         deletePerson,
+        saveCompanyTemplate,
         isDirectoryOpen,
         directoryOptions,
         openDirectory,
