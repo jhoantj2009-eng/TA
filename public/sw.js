@@ -2,7 +2,8 @@ const CACHE_VERSION = '__SW_CACHE_VERSION__';
 const SHELL_CACHE = `permiso-alturas-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE = `permiso-alturas-assets-${CACHE_VERSION}`;
 const FONTS_CACHE = `permiso-alturas-fonts-${CACHE_VERSION}`;
-const ACTIVE_CACHES = [SHELL_CACHE, ASSETS_CACHE, FONTS_CACHE];
+const DYNAMIC_ICON_CACHE = 'permiso-alturas-dynamic-icons';
+const ACTIVE_CACHES = [SHELL_CACHE, ASSETS_CACHE, FONTS_CACHE, DYNAMIC_ICON_CACHE];
 
 const NETWORK_TIMEOUT_MS = 4000;
 
@@ -148,10 +149,53 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (!event.data) return;
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
+
+function isDynamicPwaAssetPath(pathname) {
+  return (
+    pathname === withBase('manifest.webmanifest') ||
+    pathname === withBase('icons/icon-192.png') ||
+    pathname === withBase('icons/icon-512.png') ||
+    pathname === withBase('icons/icon-maskable-512.png') ||
+    pathname === withBase('icons/apple-touch-icon.png')
+  );
+}
+
+async function handleDynamicPwaAsset(event, request, url) {
+  try {
+    const dynamicCache = await caches.open(DYNAMIC_ICON_CACHE);
+    const dynamicMatch = await dynamicCache.match(url.pathname, { ignoreSearch: true });
+    if (dynamicMatch) {
+      return dynamicMatch;
+    }
+  } catch {
+    // Continuar al flujo normal si falla lectura de DYNAMIC_ICON_CACHE
+  }
+
+  // Para manifest.webmanifest sin icono dinámico personalizado, priorizar red para detectar cambios de despliegue
+  if (url.pathname === withBase('manifest.webmanifest')) {
+    try {
+      const freshManifest = await fetchWithTimeout(
+        new Request(request.url, { cache: 'no-cache', credentials: 'same-origin' }),
+        NETWORK_TIMEOUT_MS
+      );
+      if (isCacheableResponse(freshManifest)) {
+        const shellCache = await caches.open(SHELL_CACHE);
+        await shellCache.put(withBase('manifest.webmanifest'), freshManifest.clone()).catch(() => undefined);
+        return freshManifest;
+      }
+    } catch {
+      const fallback = await caches.match(withBase('manifest.webmanifest'), { ignoreSearch: true });
+      if (fallback) return fallback;
+    }
+  }
+
+  return handleStaleWhileRevalidate(event, request);
+}
 
 async function handleNavigationRequest(request, url) {
   const shellCache = await caches.open(SHELL_CACHE);
@@ -261,15 +305,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, sw.js, version.json ni módulos Vite dev
+  // Nunca interceptar otros orígenes (Firebase Auth/Firestore, etc.), rutas /api/, sw.js ni version.json
   if (
     url.origin !== self.location.origin ||
     url.pathname.startsWith('/api/') ||
     url.pathname.endsWith('/sw.js') ||
     url.pathname.endsWith('/version.json') ||
-    !url.pathname.startsWith(BASE_PATH) ||
-    isViteDevRequest(url)
+    !url.pathname.startsWith(BASE_PATH)
   ) {
+    return;
+  }
+
+  // 0. Manifiesto e íconos PWA (pueden estar actualizados dinámicamente con el logo de la empresa)
+  if (isDynamicPwaAssetPath(url.pathname)) {
+    event.respondWith(handleDynamicPwaAsset(event, request, url));
+    return;
+  }
+
+  if (isViteDevRequest(url)) {
     return;
   }
 

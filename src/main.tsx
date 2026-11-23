@@ -6,7 +6,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { CloudSyncProvider } from './components/CloudSyncContext';
 import './hooks/usePWAInstall';
 import { registerAppServiceWorker } from './hooks/useAutoAppUpdate';
+import { initDynamicPwaIconsFromStorage } from './utils/dynamicPwaIcon';
 import './index.css';
+
+initDynamicPwaIconsFromStorage();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

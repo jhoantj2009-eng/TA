@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin, type ResolvedConfig } from 'vite';
@@ -75,20 +76,68 @@ function pwaAutoSyncPlugin(buildId: string, builtAt: string): Plugin {
 
       const outDir = path.resolve(resolvedConfig.root, resolvedConfig.build.outDir);
 
-      // 1. Emitir version.json único en cada compilación para sincronización en tiempo real
+      // 1. Calcular hash de contenido de los archivos de logo/icono para invalidación automática de caché PWA
+      const hash = crypto.createHash('sha256');
+      const iconFiles = [
+        'icons/icon-192.png',
+        'icons/icon-512.png',
+        'icons/icon-maskable-512.png',
+        'company_logo.jpg',
+      ];
+      let hasIconFile = false;
+      for (const rel of iconFiles) {
+        const full = path.join(outDir, rel);
+        if (fs.existsSync(full)) {
+          hash.update(fs.readFileSync(full));
+          hasIconFile = true;
+        }
+      }
+      const iconHash = hasIconFile ? hash.digest('hex').slice(0, 10) : buildId.slice(0, 10);
+
+      // 2. Emitir version.json único en cada compilación para sincronización en tiempo real
       const versionFilePath = path.join(outDir, 'version.json');
       fs.writeFileSync(
         versionFilePath,
-        JSON.stringify({ buildId, builtAt }, null, 2),
+        JSON.stringify({ buildId, builtAt, iconHash }, null, 2),
         'utf-8'
       );
 
-      // 2. Estampar la versión única en dist/sw.js para que el navegador detecte el cambio byte a byte
+      // 3. Estampar la versión única en dist/sw.js para que el navegador detecte el cambio byte a byte
       const swFilePath = path.join(outDir, 'sw.js');
       if (fs.existsSync(swFilePath)) {
         const swContent = fs.readFileSync(swFilePath, 'utf-8');
         const updatedSw = swContent.replace(/__SW_CACHE_VERSION__/g, buildId);
         fs.writeFileSync(swFilePath, updatedSw, 'utf-8');
+      }
+
+      // 4. Estampar ?icon=<hash> en dist/manifest.webmanifest para forzar actualización del icono en Android/Desktop
+      const manifestPath = path.join(outDir, 'manifest.webmanifest');
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifestJson = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          if (Array.isArray(manifestJson.icons)) {
+            manifestJson.icons = manifestJson.icons.map((icon: { src?: string }) => {
+              if (typeof icon.src === 'string' && !icon.src.includes('?')) {
+                return { ...icon, src: `${icon.src}?icon=${iconHash}` };
+              }
+              return icon;
+            });
+          }
+          fs.writeFileSync(manifestPath, JSON.stringify(manifestJson, null, 2), 'utf-8');
+        } catch {
+          // Mantener manifest original si ocurre un error de parseo
+        }
+      }
+
+      // 5. Estampar ?icon=<hash> en dist/index.html (apple-touch-icon, icons y manifest)
+      const indexHtmlPath = path.join(outDir, 'index.html');
+      if (fs.existsSync(indexHtmlPath)) {
+        let html = fs.readFileSync(indexHtmlPath, 'utf-8');
+        html = html
+          .replace(/(icons\/icon-192\.png)(?!\?)/g, `$1?icon=${iconHash}`)
+          .replace(/(icons\/icon-512\.png)(?!\?)/g, `$1?icon=${iconHash}`)
+          .replace(/(manifest\.webmanifest)(?!\?)/g, `$1?icon=${iconHash}`);
+        fs.writeFileSync(indexHtmlPath, html, 'utf-8');
       }
     },
   };

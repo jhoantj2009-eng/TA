@@ -59,7 +59,11 @@ async function clearAppCaches() {
     const cacheKeys = await caches.keys();
     await Promise.all(
       cacheKeys
-        .filter((key) => key.startsWith('permiso-alturas-'))
+        .filter(
+          (key) =>
+            key.startsWith('permiso-alturas-') &&
+            key !== 'permiso-alturas-dynamic-icons'
+        )
         .map((key) => caches.delete(key))
     );
   } catch {

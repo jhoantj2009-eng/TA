@@ -24,6 +24,7 @@ import { PersonnelDirectoryModal } from './components/PersonnelDirectoryModal';
 import { AuthModal } from './components/AuthModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { APP_BEFORE_UPDATE_RELOAD_EVENT } from './hooks/useAutoAppUpdate';
+import { syncDynamicPwaIcons, resetDynamicPwaIcons } from './utils/dynamicPwaIcon';
 import { buildDuplicatedPermitData, getNextPermitNumber } from './services/firestoreStorage';
 
 function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
@@ -813,6 +814,11 @@ export default function App() {
     showLogoFeedback(`Permiso duplicado como N° ${nextNum} en el editor.`);
   };
 
+  // Mantener el ícono PWA de pantalla de inicio y favicon sincronizados dinámicamente con el logo actual
+  useEffect(() => {
+    void syncDynamicPwaIcons(data.companyLogo);
+  }, [data.companyLogo]);
+
   const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -821,7 +827,8 @@ export default function App() {
         const logoDataUrl = reader.result as string;
         updateData({ companyLogo: logoDataUrl });
         saveStoredHeaderConfig({ logo: logoDataUrl });
-        showLogoFeedback('¡Logo cambiado y fijado con éxito! Se mostrará a quien abra el enlace compartido.');
+        void syncDynamicPwaIcons(logoDataUrl, { syncServer: true, force: true });
+        showLogoFeedback('¡Logo e ícono de la aplicación actualizados con éxito!');
       };
       reader.readAsDataURL(file);
     }
@@ -831,26 +838,30 @@ export default function App() {
   };
 
   const handleSaveLogoAsTemplate = async () => {
+    const activeLogo = data.companyLogo !== undefined ? data.companyLogo : DEFAULT_INVEASAS_LOGO;
     await saveStoredHeaderConfig({
-      logo: data.companyLogo !== undefined ? data.companyLogo : DEFAULT_INVEASAS_LOGO,
+      logo: activeLogo,
       code: data.documentCode || DEFAULT_DOC_CONFIG.code,
       version: data.documentVersion || DEFAULT_DOC_CONFIG.version,
       validity: data.documentValidity || DEFAULT_DOC_CONFIG.validity,
       companyName: data.contractingCompany || data.companyName || 'DCM Servicios & Consultoría',
       companyNit: data.companyNit || '',
     });
-    showLogoFeedback('¡Encabezado, empresa, NIT, códigos y logo guardados como plantilla predeterminada!');
+    void syncDynamicPwaIcons(activeLogo, { syncServer: true, force: true });
+    showLogoFeedback('¡Encabezado, empresa, NIT, códigos, logo e ícono PWA guardados como plantilla predeterminada!');
   };
 
   const handleRestoreDefaultLogo = () => {
     updateData({ companyLogo: DEFAULT_INVEASAS_LOGO });
     saveStoredHeaderConfig({ logo: DEFAULT_INVEASAS_LOGO });
-    showLogoFeedback('Logo oficial restaurado y fijado para enlaces compartidos.');
+    void resetDynamicPwaIcons({ syncServer: true });
+    showLogoFeedback('Logo oficial e ícono PWA restaurados.');
   };
 
   const handleRemoveLogo = () => {
     updateData({ companyLogo: '' });
     saveStoredHeaderConfig({ logo: '' });
+    void resetDynamicPwaIcons({ syncServer: true });
     showLogoFeedback('Logo removido de la plantilla.');
   };
 
@@ -866,7 +877,8 @@ export default function App() {
         contractingCompany: DEFAULT_DOC_CONFIG.companyName || 'DCM Servicios & Consultoría',
       });
       await resetServerHeaderConfig();
-      showLogoFeedback('Encabezado restaurado a la plantilla predeterminada.');
+      await resetDynamicPwaIcons({ syncServer: true });
+      showLogoFeedback('Encabezado e ícono PWA restaurados a la plantilla predeterminada.');
     }
   };
 

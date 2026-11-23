@@ -2,6 +2,7 @@ import React, { ChangeEvent, useRef } from 'react';
 import { Upload, RefreshCw } from 'lucide-react';
 import { PermitData } from '../types';
 import { saveStoredHeaderConfig } from '../defaultLogo';
+import { syncDynamicPwaIcons } from '../utils/dynamicPwaIcon';
 
 interface HeaderProps {
   data: PermitData;
@@ -71,7 +72,8 @@ export function Header({ data, updateData, pageNum = 1, totalPages = 2, isUnifie
         const logoDataUrl = await normalizeUploadedLogo(file);
         updateData({ companyLogo: logoDataUrl });
         saveStoredHeaderConfig({ logo: logoDataUrl });
-        onNotify?.("¡Logo cambiado y fijado con éxito! Se mostrará a quien abra el enlace compartido.");
+        void syncDynamicPwaIcons(logoDataUrl, { syncServer: true, force: true });
+        onNotify?.("¡Logo e ícono de la aplicación actualizados con éxito!");
       } catch {
         onNotify?.("No se pudo procesar la imagen seleccionada. Intenta con un archivo PNG o JPG.");
       }
